@@ -1,11 +1,13 @@
 let scene, camera, renderer, controls, vaquero;
 const keys = {};
+
+// Cargar la configuración de color elegida en perfil.html
 const playerConfig = JSON.parse(localStorage.getItem('playerConfig')) || { color: '#ff007f' };
 
 function initGame() {
-    // Escena
+    // 1. ESCENA Y CIELO
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
+    scene.background = new THREE.Color(0x87CEEB); // Azul cielo
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 10, 20);
@@ -15,53 +17,86 @@ function initGame() {
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // Iluminación
-    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-    sun.position.set(10, 20, 10);
+    // 2. ILUMINACIÓN PRO (Para que se vea el pasto y la casa)
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+    sun.position.set(50, 100, 50);
+    sun.castShadow = true;
     scene.add(sun);
 
-    // Suelo
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(1000, 1000), 
-        new THREE.MeshStandardMaterial({color: 0x4caf50})
-    );
+    // 3. EL MAPA (Pasto y Construcciones)
+    // Suelo de pasto verde
+    const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x4caf50 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
-    // Personaje (Vaquero)
+    // Casa de referencia en el mapa
+    crearCasa(-15, 0, -15);
+
+    // 4. PERSONAJE (Vaquero Detallado)
     vaquero = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({color: playerConfig.color});
+    const bodyMat = new THREE.MeshStandardMaterial({ color: playerConfig.color });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+
+    // Torso y Cabeza
     const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.3, 0.6), bodyMat);
     torso.position.y = 1.65;
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshStandardMaterial({color: 0xffe0bd}));
-    head.position.y = 2.6;
-    vaquero.add(torso, head);
+    torso.castShadow = true;
+    
+    const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), skinMat);
+    cabeza.position.y = 2.6;
+
+    // Sombrero Cowboy
+    const ala = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 1.3), woodMat);
+    ala.position.y = 2.95;
+    const copa = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.7), woodMat);
+    copa.position.y = 3.2;
+
+    vaquero.add(torso, cabeza, ala, copa);
     scene.add(vaquero);
 
-    // Controles de cámara
+    // 5. CONTROLES Y CÁMARA
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    
-    // Captura de teclas
+    controls.enableDamping = true;
+
     window.onkeydown = (e) => keys[e.code] = true;
     window.onkeyup = (e) => keys[e.code] = false;
 
-    // Arrancar el bucle de animación
     animate();
-    console.log("Mundo iniciado directamente.");
+    console.log("Mundo completo iniciado sin esperas.");
+}
+
+function crearCasa(x, y, z) {
+    const casa = new THREE.Group();
+    // Paredes
+    const walls = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), new THREE.MeshStandardMaterial({color: 0x5d4037}));
+    walls.position.y = 3;
+    // Techo
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(9, 5, 4), new THREE.MeshStandardMaterial({color: 0x3e2723}));
+    roof.position.y = 8.5; roof.rotation.y = Math.PI/4;
+    
+    casa.add(walls, roof);
+    casa.position.set(x, y, z);
+    scene.add(casa);
 }
 
 function animate() {
     requestAnimationFrame(animate);
     
     if(vaquero) {
-        if(keys['KeyW']) vaquero.translateZ(0.25);
-        if(keys['KeyS']) vaquero.translateZ(-0.25);
+        // Velocidad de movimiento
+        const speed = 0.25;
+        if(keys['KeyW']) vaquero.translateZ(speed);
+        if(keys['KeyS']) vaquero.translateZ(-speed);
         if(keys['KeyA']) vaquero.rotation.y += 0.07;
         if(keys['KeyD']) vaquero.rotation.y -= 0.07;
         
-        // La cámara sigue al personaje
-        const camPos = new THREE.Vector3(0, 7, 14).applyMatrix4(vaquero.matrixWorld);
+        // Cámara dinámica que sigue al vaquero
+        const camPos = new THREE.Vector3(0, 7, 15).applyMatrix4(vaquero.matrixWorld);
         camera.position.lerp(camPos, 0.1);
         controls.target.lerp(vaquero.position, 0.1);
     }
@@ -70,7 +105,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Ajuste de pantalla por si redimensionas
+// Re-ajuste si cambias el tamaño de la ventana
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
