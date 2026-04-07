@@ -2,42 +2,59 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Libre | Cowboy Engine</title>
+    <title>Mundo Libre | Cowboy Engine Pro</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        #hud { 
-            position: absolute; top: 20px; left: 20px; 
-            background: rgba(10, 10, 10, 0.8); color: #ff007f; 
-            padding: 15px; border-radius: 12px; border: 2px solid #ff007f; 
-            z-index: 100; box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
-            backdrop-filter: blur(5px);
+        
+        /* HUD DE SUPERVIVENCIA ESTILO NEON FLOW */
+        #hud-container {
+            position: absolute; top: 20px; left: 20px;
+            display: flex; flex-direction: column; gap: 10px;
+            z-index: 100;
         }
-        .pink { font-weight: bold; text-shadow: 0 0 5px #ff007f; }
+        .stat-box {
+            background: rgba(10, 10, 10, 0.85); color: white;
+            padding: 10px 15px; border-radius: 8px;
+            border-left: 4px solid #ff007f; min-width: 180px;
+            backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .bar-bg { background: #333; height: 6px; width: 100%; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #ff007f; transition: width 0.3s; }
+        .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+        .val { float: right; color: #ff007f; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="hud">
-        <div style="margin-bottom: 5px;">JUGADOR: <span id="pName" class="pink"></span></div>
-        <small style="color: #aaa;"><b>WASD</b> para mover | <b>MOUSE</b> para cámara</small>
+    <div id="hud-container">
+        <div class="stat-box">
+            <div class="label">Energía <span class="val" id="n-energia">100%</span></div>
+            <div class="bar-bg"><div id="b-energia" class="bar-fill"></div></div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Hidratación <span class="val" id="n-sed">100%</span></div>
+            <div class="bar-bg"><div id="b-sed" class="bar-fill" style="background: #00d4ff;"></div></div>
+        </div>
+        <div class="stat-box">
+            <div class="label">Alimentación <span class="val" id="n-hambre">100%</span></div>
+            <div class="bar-bg"><div id="b-hambre" class="bar-fill" style="background: #ffaa00;"></div></div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        /**
-         * TODO EN UNO - EVITA ERRORES DE LECTURA DE ARCHIVOS
-         */
         let scene, camera, renderer, controls, vaquero;
-        let pIzq, pDer, bIzq, bDer; // Extremidades
+        let pIzq, pDer, bIzq, bDer, torso;
+        let config = JSON.parse(localStorage.getItem('playerConfig'));
         const keys = {};
 
-        // 1. OBTENER CONFIGURACIÓN
-        const playerConfig = JSON.parse(localStorage.getItem('playerConfig')) || { color: '#ff007f' };
+        // Variables de estado (ADN del personaje)
+        let stats = config.stats || { hambre: 100, sed: 100, energia: 100 };
+        let cansancio = 0;
 
-        function initGame() {
-            // ESCENA
+        function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
 
@@ -46,95 +63,123 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // LUCES
+            // Luz
             scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             const sun = new THREE.DirectionalLight(0xffffff, 1.0);
             sun.position.set(50, 100, 50);
-            sun.castShadow = true;
             scene.add(sun);
 
-            // MAPA (Pasto Verde)
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(2000, 2000), 
-                new THREE.MeshStandardMaterial({ color: 0x4caf50 })
-            );
+            // Suelo Verde
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({color: 0x4caf50}));
             ground.rotation.x = -Math.PI / 2;
-            ground.receiveShadow = true;
             scene.add(ground);
 
-            // PERSONAJE ANIMADO
-            vaquero = new THREE.Group();
-            const matRopa = new THREE.MeshStandardMaterial({ color: playerConfig.color });
-            const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-
-            // Cuerpo
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matRopa);
-            torso.position.y = 1.6;
-            vaquero.add(torso);
-
-            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
-            cabeza.position.y = 2.5;
-            vaquero.add(cabeza);
-
-            // Extremidades
-            const geoExt = new THREE.BoxGeometry(0.3, 0.9, 0.3);
-            pIzq = new THREE.Mesh(geoExt, matRopa); pIzq.position.set(-0.2, 0.5, 0);
-            pDer = new THREE.Mesh(geoExt, matRopa); pDer.position.set(0.2, 0.5, 0);
-            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), matPiel); bIzq.position.set(-0.55, 1.6, 0);
-            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), matPiel); bDer.position.set(0.55, 1.6, 0);
-
-            vaquero.add(pIzq, pDer, bIzq, bDer);
-            scene.add(vaquero);
-
-            // CONTROLES
+            buildVaquero();
+            
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
+            window.addEventListener('keydown', (e) => keys[e.code] = true);
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-            window.onkeydown = (e) => keys[e.code] = true;
-            window.onkeyup = (e) => keys[e.code] = false;
-
-            document.getElementById('pName').innerText = localStorage.getItem('currentUser') || "Agustín";
-
+            setInterval(updateNeeds, 5000); // Actualiza hambre/sed cada 5 segundos
             animate();
+        }
+
+        function buildVaquero() {
+            vaquero = new THREE.Group();
+            const matR = new THREE.MeshStandardMaterial({ color: config.color });
+            const matP = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+            const mScale = parseFloat(config.musculo);
+
+            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matR);
+            torso.position.y = 1.6;
+
+            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matP);
+            cabeza.position.y = 2.5;
+
+            pIzq = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 0.3), matR);
+            pIzq.position.set(-0.25, 0.5, 0);
+            pIzq.scale.set(mScale, 1, mScale);
+
+            pDer = pIzq.clone();
+            pDer.position.x = 0.25;
+
+            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matP);
+            bIzq.position.set(-0.6 * mScale, 1.7, 0);
+            bIzq.scale.set(mScale, 1, mScale);
+
+            bDer = bIzq.clone();
+            bDer.position.x = 0.6 * mScale;
+
+            vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
+            vaquero.scale.y = parseFloat(config.altura);
+            scene.add(vaquero);
+        }
+
+        function updateNeeds() {
+            // Consumo natural
+            stats.hambre = Math.max(0, stats.hambre - 0.5);
+            stats.sed = Math.max(0, stats.sed - 1.0);
+            
+            // Si el hambre o sed llegan a 0, la energía baja más rápido
+            if(stats.hambre <= 0 || stats.sed <= 0) stats.energia = Math.max(0, stats.energia - 2);
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('b-energia').style.width = stats.energia + "%";
+            document.getElementById('n-energia').innerText = Math.round(stats.energia) + "%";
+            document.getElementById('b-sed').style.width = stats.sed + "%";
+            document.getElementById('n-sed').innerText = Math.round(stats.sed) + "%";
+            document.getElementById('b-hambre').style.width = stats.hambre + "%";
+            document.getElementById('n-hambre').innerText = Math.round(stats.hambre) + "%";
         }
 
         function animate() {
             requestAnimationFrame(animate);
             let moving = false;
+            const time = Date.now() * 0.01;
 
             if(vaquero) {
-                const speed = 0.25;
-                if(keys['KeyW']) { vaquero.translateZ(speed); moving = true; }
-                if(keys['KeyS']) { vaquero.translateZ(-speed); moving = true; }
-                if(keys['KeyA']) { vaquero.rotation.y += 0.06; moving = true; }
-                if(keys['KeyD']) { vaquero.rotation.y -= 0.06; moving = true; }
+                // FÍSICA DE MOVIMIENTO VS CANSANCIO
+                // Si la energía es baja, la velocidad máxima baja
+                let currentSpeed = 0.25 * (stats.energia / 100);
+                if(keys['KeyW']) { vaquero.translateZ(currentSpeed); moving = true; stats.energia -= 0.05; }
+                if(keys['KeyS']) { vaquero.translateZ(-currentSpeed); moving = true; }
+                if(keys['KeyA']) { vaquero.rotation.y += 0.05; moving = true; }
+                if(keys['KeyD']) { vaquero.rotation.y -= 0.05; moving = true; }
 
-                // Animación de caminata
+                // Recuperación de energía si está quieto
+                if(!moving && stats.energia < 100) stats.energia += 0.1;
+
+                // ANIMACIONES REALISTAS
                 if(moving) {
-                    const t = Date.now() * 0.01;
-                    pIzq.rotation.x = Math.sin(t) * 0.6;
-                    pDer.rotation.x = -Math.sin(t) * 0.6;
-                    bIzq.rotation.x = -Math.sin(t) * 0.6;
-                    bDer.rotation.x = Math.sin(t) * 0.6;
-                    vaquero.position.y = Math.abs(Math.cos(t * 0.5)) * 0.1;
+                    const walkT = Date.now() * 0.012;
+                    pIzq.rotation.x = Math.sin(walkT) * 0.6;
+                    pDer.rotation.x = -Math.sin(walkT) * 0.6;
+                    bIzq.rotation.x = -Math.sin(walkT) * 0.5;
+                    bDer.rotation.x = Math.sin(walkT) * 0.5;
                 } else {
+                    // Respiración (Idle) - Se acelera si tiene poca energía
+                    const breathSpeed = stats.energia < 30 ? 0.03 : 0.015;
+                    torso.scale.x = 1 + Math.sin(Date.now() * breathSpeed) * 0.03;
                     pIzq.rotation.x = pDer.rotation.x = bIzq.rotation.x = bDer.rotation.x = 0;
-                    vaquero.position.y = 0;
                 }
 
-                // Cámara
-                const offset = new THREE.Vector3(0, 7, 14).applyMatrix4(vaquero.matrixWorld);
-                camera.position.lerp(offset, 0.1);
+                // Seguimiento de cámara
+                const camOffset = new THREE.Vector3(0, 8, 16).applyMatrix4(vaquero.matrixWorld);
+                camera.position.lerp(camOffset, 0.1);
                 controls.target.lerp(vaquero.position, 0.1);
             }
+
+            updateHUD();
             controls.update();
             renderer.render(scene, camera);
         }
 
-        window.onload = initGame;
+        window.onload = init;
     </script>
 </body>
 </html>
