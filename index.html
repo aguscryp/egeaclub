@@ -2,185 +2,208 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox 2D Style - WASD Edition</title>
+    <title>Cowboy World: Infinite Edition</title>
     <style>
-        body {
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #1a1a1a;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-        }
-
-        #contenedor {
-            position: relative;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; }
         #ui {
             position: absolute;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.6);
-            color: #0f0;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-family: monospace;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 8px;
             pointer-events: none;
-            border-left: 4px solid #0f0;
+            border: 2px solid #5d4037;
         }
-
-        canvas {
-            display: block;
-            background-color: #348c31;
-        }
+        .key { color: #ffeb3b; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="contenedor">
-        <div id="ui">MOVIMIENTO: [W, A, S, D]</div>
-        <canvas id="mundo"></canvas>
-    </div>
+<div id="ui">
+    <span class="key">WASD</span> Caminar | 
+    <span class="key">ESPACIO</span> Saltar | 
+    <span class="key">V</span> Cambiar Vista (2D/3D)<br>
+    <small>Mapa Infinito Generado por Código</small>
+</div>
+
+<canvas id="game"></canvas>
 
 <script>
-    const canvas = document.getElementById('mundo');
-    const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
 
-    // Ajuste de pantalla
-    canvas.width = 900;
-    canvas.height = 600;
+// --- CONFIGURACIÓN ---
+let width, height;
+let view3D = false; 
+const TILE_SIZE = 100;
+const keys = {};
 
-    const config = {
-        tileSize: 50,
-        playerSpeed: 4.5,
-        grassColor1: '#3fa33a', // Verde base
-        grassColor2: '#2e8b29', // Verde sombra
-        detailDensity: 0.15     // Cantidad de "pastitos" realistas
-    };
+const player = {
+    x: 0, y: 0, // Posición en el mundo infinito
+    screenX: 0, screenY: 0,
+    speed: 5,
+    z: 0, // Altura para el salto
+    vz: 0, // Velocidad de salto
+    isJumping: false,
+    angle: 0, // Animación de piernas/brazos
+    frame: 0
+};
 
-    const jugador = {
-        x: canvas.width / 2,
-        y: canvas.height / 2,
-        size: 35,
-        color: '#e63946', // Rojo vibrante tipo Roblox
-        headColor: '#ffb703', // Tono de piel / cabeza
-        dirX: 0,
-        dirY: 0
-    };
+// Redimensionar pantalla completa
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    player.screenX = width / 2;
+    player.screenY = height / 2;
+}
+window.addEventListener('resize', resize);
+resize();
 
-    const teclas = { w: false, a: false, s: false, d: false };
+// Eventos
+window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(e.key === 'v') view3D = !view3D; };
+window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
-    // --- GENERACIÓN DE MAPA "REALISTA" ---
-    // Creamos un canvas oculto para la textura de pasto y así no procesar tanto cada frame
-    const grassCanvas = document.createElement('canvas');
-    grassCanvas.width = canvas.width;
-    grassCanvas.height = canvas.height;
-    const gCtx = grassCanvas.getContext('2d');
+// --- DIBUJO DEL VAQUERO ---
+function drawCowboy(x, y, scale) {
+    const jumpOffset = player.z; // Elevación por salto
+    const swing = Math.sin(player.frame * 0.2) * 15; // Balanceo de extremidades
+    
+    ctx.save();
+    ctx.translate(x, y - jumpOffset);
+    ctx.scale(scale, scale);
 
-    function generarMapaRealista() {
-        // Dibujamos bloques base con degradados
-        for (let x = 0; x < canvas.width; x += config.tileSize) {
-            for (let y = 0; y < canvas.height; y += config.tileSize) {
-                // Alternamos color base
-                gCtx.fillStyle = (Math.floor(x/50) + Math.floor(y/50)) % 2 === 0 
-                                 ? config.grassColor1 : config.grassColor2;
-                gCtx.fillRect(x, y, config.tileSize, config.tileSize);
+    // 1. Sombra (en el suelo)
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath();
+    ctx.ellipse(0, jumpOffset + 20, 20, 10, 0, 0, Math.PI*2);
+    ctx.fill();
 
-                // Añadimos "ruido" de briznas de pasto para realismo
-                for (let i = 0; i < 20; i++) {
-                    gCtx.fillStyle = 'rgba(255,255,255,0.05)';
-                    gCtx.fillRect(x + Math.random()*50, y + Math.random()*50, 2, 4);
-                    gCtx.fillStyle = 'rgba(0,0,0,0.05)';
-                    gCtx.fillRect(x + Math.random()*50, y + Math.random()*50, 2, 2);
-                }
-            }
+    // 2. Piernas (Marrones)
+    ctx.fillStyle = "#3e2723";
+    // Pierna Izq
+    ctx.fillRect(-12 + (player.dirY ? 0 : -swing/4), 5 + (player.dirY ? swing : 0), 8, 15);
+    // Pierna Der
+    ctx.fillRect(4 + (player.dirY ? 0 : swing/4), 5 + (player.dirY ? -swing : 0), 8, 15);
+
+    // 3. Cuerpo (Chaleco Marrón claro)
+    ctx.fillStyle = "#795548";
+    ctx.fillRect(-15, -20, 30, 30);
+
+    // 4. Brazos
+    ctx.fillStyle = "#5d4037";
+    // Brazo Izq
+    ctx.fillRect(-22, -18 + (player.dirY ? -swing : 0), 7, 15);
+    // Brazo Der
+    ctx.fillRect(15, -18 + (player.dirY ? swing : 0), 7, 15);
+
+    // 5. Cabeza y Sombrero
+    ctx.fillStyle = "#ffccbc"; // Piel
+    ctx.fillRect(-10, -35, 20, 18);
+    
+    // Sombrero Vaquero
+    ctx.fillStyle = "#3e2723";
+    ctx.fillRect(-20, -38, 40, 5); // Ala
+    ctx.fillRect(-12, -48, 24, 12); // Copa
+
+    // Cara simple
+    ctx.fillStyle = "#000";
+    ctx.fillRect(-5, -30, 3, 3);
+    ctx.fillRect(3, -30, 3, 3);
+
+    ctx.restore();
+}
+
+// --- RENDERIZADO DEL MAPA INFINITO ---
+function drawMap() {
+    const offsetX = player.x % TILE_SIZE;
+    const offsetY = player.y % TILE_SIZE;
+
+    // Calculamos cuántos tiles caben en pantalla
+    const cols = Math.ceil(width / TILE_SIZE) + 2;
+    const rows = Math.ceil(height / TILE_SIZE) + 2;
+
+    for (let i = -1; i < cols; i++) {
+        for (let j = -1; j < rows; j++) {
+            const posX = i * TILE_SIZE - offsetX;
+            const posY = j * TILE_SIZE - offsetY;
+
+            // Simular coordenadas reales para el patrón de colores
+            const worldI = Math.floor((player.x + posX) / TILE_SIZE);
+            const worldJ = Math.floor((player.y + posY) / TILE_SIZE);
+
+            ctx.fillStyle = (worldI + worldJ) % 2 === 0 ? "#4caf50" : "#43a047";
+            ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
+            
+            // Detalles de pasto "realista"
+            ctx.fillStyle = "rgba(255,255,255,0.1)";
+            ctx.fillRect(posX + 20, posY + 20, 2, 10);
         }
     }
-    generarMapaRealista();
+}
 
-    // Eventos de teclado actualizados a WASD
-    window.onkeydown = (e) => { 
-        const key = e.key.toLowerCase();
-        if (teclas.hasOwnProperty(key)) teclas[key] = true; 
-    };
-    window.onkeyup = (e) => { 
-        const key = e.key.toLowerCase();
-        if (teclas.hasOwnProperty(key)) teclas[key] = false; 
-    };
+function update() {
+    let dx = 0, dy = 0;
+    if (keys['w']) dy = -1;
+    if (keys['s']) dy = 1;
+    if (keys['a']) dx = -1;
+    if (keys['d']) dx = 1;
 
-    function dibujarJugador() {
-        // 1. Sombra (le da el toque de profundidad de Roblox)
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath();
-        ctx.ellipse(jugador.x + 18, jugador.y + 35, 15, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+    // Guardamos dirección para animación
+    player.dirY = dy !== 0;
 
-        // 2. Cuerpo (Bloque principal)
-        ctx.fillStyle = jugador.color;
-        ctx.fillRect(jugador.x, jugador.y, jugador.size, jugador.size);
-        
-        // Borde del cuerpo para definición
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-        ctx.strokeRect(jugador.x, jugador.y, jugador.size, jugador.size);
-
-        // 3. Cabeza (Estilo Roblox)
-        ctx.fillStyle = jugador.headColor;
-        const headSize = jugador.size * 0.6;
-        const headX = jugador.x + (jugador.size - headSize) / 2;
-        const headY = jugador.y - headSize * 0.4;
-        ctx.fillRect(headX, headY, headSize, headSize);
-
-        // 4. Cara Simple
-        ctx.fillStyle = '#333';
-        // Ojo izq
-        ctx.fillRect(headX + 5, headY + 5, 4, 4);
-        // Ojo der
-        ctx.fillRect(headX + headSize - 9, headY + 5, 4, 4);
-        // Boca
-        ctx.fillRect(headX + 5, headY + 14, headSize - 10, 2);
+    if (dx !== 0 || dy !== 0) {
+        player.frame++;
+        const mag = Math.sqrt(dx*dx + dy*dy);
+        player.x += (dx/mag) * player.speed;
+        player.y += (dy/mag) * player.speed;
     }
 
-    function update() {
-        jugador.dirX = 0;
-        jugador.dirY = 0;
+    // Lógica de Salto (Física simple)
+    if ((keys[' '] || keys['escape']) && !player.isJumping) {
+        player.vz = 12;
+        player.isJumping = true;
+    }
 
-        if (teclas.w) jugador.dirY = -1;
-        if (teclas.s) jugador.dirY = 1;
-        if (teclas.a) jugador.dirX = -1;
-        if (teclas.d) jugador.dirX = 1;
-
-        // Normalización de velocidad diagonal
-        if (jugador.dirX !== 0 && jugador.dirY !== 0) {
-            jugador.dirX *= 0.7071;
-            jugador.dirY *= 0.7071;
+    if (player.isJumping) {
+        player.z += player.vz;
+        player.vz -= 0.8; // Gravedad
+        if (player.z <= 0) {
+            player.z = 0;
+            player.vz = 0;
+            player.isJumping = false;
         }
+    }
+}
 
-        // Colisiones con bordes
-        let nx = jugador.x + jugador.dirX * config.playerSpeed;
-        let ny = jugador.y + jugador.dirY * config.playerSpeed;
+function loop() {
+    ctx.clearRect(0,0, width, height);
 
-        if (nx > 0 && nx < canvas.width - jugador.size) jugador.x = nx;
-        if (ny > 15 && ny < canvas.height - jugador.size) jugador.y = ny;
+    ctx.save();
+    if (view3D) {
+        // Efecto de perspectiva 3D (Tercera persona)
+        ctx.translate(width/2, height/2);
+        ctx.transform(1, 0, -0.3, 0.5, 0, 0); 
+        ctx.translate(-width/2, -height/1.5);
     }
 
-    function loop() {
-        // Dibujamos la textura pre-generada (mucho más rápido)
-        ctx.drawImage(grassCanvas, 0, 0);
-        
-        update();
-        dibujarJugador();
-        
-        requestAnimationFrame(loop);
-    }
+    drawMap();
+    
+    // El personaje siempre está en el centro de la pantalla
+    // Pero si es 3D, lo bajamos un poco para que se vea mejor
+    const drawY = view3D ? player.screenY + 100 : player.screenY;
+    drawCowboy(player.screenX, drawY, view3D ? 1.5 : 1);
 
-    loop();
+    ctx.restore();
+
+    update();
+    requestAnimationFrame(loop);
+}
+
+loop();
 </script>
+
 </body>
 </html>
