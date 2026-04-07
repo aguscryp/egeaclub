@@ -2,31 +2,23 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cowboy World: Infinite Edition</title>
+    <title>Roblox Cowboy Engine - Ultra Realismo</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #111; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 8px;
-            pointer-events: none;
-            border: 2px solid #5d4037;
+            position: absolute; top: 20px; left: 20px; color: white;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(5px);
         }
-        .key { color: #ffeb3b; font-weight: bold; }
+        canvas { display: block; filter: contrast(1.1) saturate(1.2); }
+        .controls { font-size: 12px; color: #aaa; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <span class="key">WASD</span> Caminar | 
-    <span class="key">ESPACIO</span> Saltar | 
-    <span class="key">V</span> Cambiar Vista (2D/3D)<br>
-    <small>Mapa Infinito Generado por Código</small>
+    <strong>COWBOY SIMULATOR</strong><br>
+    <div class="controls">WASD: Caminar | ESPACIO: Saltar | V: Cámara</div>
 </div>
 
 <canvas id="game"></canvas>
@@ -35,175 +27,188 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
-// --- CONFIGURACIÓN ---
 let width, height;
-let view3D = false; 
-const TILE_SIZE = 100;
+let view3D = true;
+const TILE_SIZE = 120;
 const keys = {};
 
+const world = { x: 0, y: 0 };
 const player = {
-    x: 0, y: 0, // Posición en el mundo infinito
-    screenX: 0, screenY: 0,
-    speed: 5,
-    z: 0, // Altura para el salto
-    vz: 0, // Velocidad de salto
-    isJumping: false,
-    angle: 0, // Animación de piernas/brazos
-    frame: 0
+    z: 0, vz: 0, isJumping: false,
+    walkCycle: 0,
+    velocity: { x: 0, y: 0 },
+    lastDir: 1 // 1 para derecha, -1 para izquierda
 };
 
-// Redimensionar pantalla completa
 function resize() {
     width = canvas.width = window.innerWidth;
     height = canvas.height = window.innerHeight;
-    player.screenX = width / 2;
-    player.screenY = height / 2;
 }
 window.addEventListener('resize', resize);
 resize();
 
-// Eventos
 window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(e.key === 'v') view3D = !view3D; };
 window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
-// --- DIBUJO DEL VAQUERO ---
-function drawCowboy(x, y, scale) {
-    const jumpOffset = player.z; // Elevación por salto
-    const swing = Math.sin(player.frame * 0.2) * 15; // Balanceo de extremidades
-    
-    ctx.save();
-    ctx.translate(x, y - jumpOffset);
-    ctx.scale(scale, scale);
+// --- DIBUJO DE CAJA 3D (Estilo Roblox Blocky) ---
+function drawBlock(x, y, w, h, d, color) {
+    const shadow = shadeColor(color, -20);
+    const highlight = shadeColor(color, 20);
 
-    // 1. Sombra (en el suelo)
-    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    // Cara lateral (Profundidad)
+    ctx.fillStyle = shadow;
+    ctx.fillRect(x + w, y + d, d/2, h);
+
+    // Cara superior
+    ctx.fillStyle = highlight;
     ctx.beginPath();
-    ctx.ellipse(0, jumpOffset + 20, 20, 10, 0, 0, Math.PI*2);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(x + w + d/2, y + d);
+    ctx.lineTo(x + d/2, y + d);
     ctx.fill();
 
-    // 2. Piernas (Marrones)
-    ctx.fillStyle = "#3e2723";
-    // Pierna Izq
-    ctx.fillRect(-12 + (player.dirY ? 0 : -swing/4), 5 + (player.dirY ? swing : 0), 8, 15);
-    // Pierna Der
-    ctx.fillRect(4 + (player.dirY ? 0 : swing/4), 5 + (player.dirY ? -swing : 0), 8, 15);
+    // Cara frontal
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+}
 
-    // 3. Cuerpo (Chaleco Marrón claro)
-    ctx.fillStyle = "#795548";
-    ctx.fillRect(-15, -20, 30, 30);
+function shadeColor(col, amt) {
+    let usePound = false;
+    if (col[0] == "#") { col = col.slice(1); usePound = true; }
+    let num = parseInt(col, 16);
+    let r = (num >> 16) + amt;
+    let g = (num >> 8 & 0x00FF) + amt;
+    let b = (num & 0x0000FF) + amt;
+    r = Math.max(Math.min(255, r), 0);
+    g = Math.max(Math.min(255, g), 0);
+    b = Math.max(Math.min(255, b), 0);
+    return (usePound ? "#" : "") + (g | (b << 8) | (r << 16)).toString(16).padStart(6, '0');
+}
 
-    // 4. Brazos
-    ctx.fillStyle = "#5d4037";
-    // Brazo Izq
-    ctx.fillRect(-22, -18 + (player.dirY ? -swing : 0), 7, 15);
-    // Brazo Der
-    ctx.fillRect(15, -18 + (player.dirY ? swing : 0), 7, 15);
-
-    // 5. Cabeza y Sombrero
-    ctx.fillStyle = "#ffccbc"; // Piel
-    ctx.fillRect(-10, -35, 20, 18);
+function drawCowboy(targetX, targetY) {
+    const isMoving = Math.abs(player.velocity.x) > 0.1 || Math.abs(player.velocity.y) > 0.1;
+    if(isMoving) player.walkCycle += 0.15;
     
-    // Sombrero Vaquero
-    ctx.fillStyle = "#3e2723";
-    ctx.fillRect(-20, -38, 40, 5); // Ala
-    ctx.fillRect(-12, -48, 24, 12); // Copa
+    const bob = Math.sin(player.walkCycle) * 4;
+    const swing = Math.sin(player.walkCycle) * 12;
+    const jumpY = player.z;
 
-    // Cara simple
-    ctx.fillStyle = "#000";
-    ctx.fillRect(-5, -30, 3, 3);
-    ctx.fillRect(3, -30, 3, 3);
+    ctx.save();
+    ctx.translate(targetX, targetY - jumpY);
+
+    // Sombra proyectada real
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(15, jumpY + 40, 25 - jumpY/10, 12 - jumpY/20, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // Piernas (Movimiento independiente)
+    drawBlock(-12, 15 + (isMoving ? -swing : 0), 10, 25, 10, "#3e2723"); // Izq
+    drawBlock(5, 15 + (isMoving ? swing : 0), 10, 25, 10, "#3e2723");  // Der
+
+    // Torso (Inclinación al caminar)
+    ctx.rotate(isMoving ? Math.sin(player.walkCycle)*0.05 : 0);
+    drawBlock(-15, -15 + bob, 30, 32, 12, "#795548");
+
+    // Brazos
+    drawBlock(-22, -12 + (isMoving ? swing : 0), 7, 22, 8, "#5d4037");
+    drawBlock(15, -12 + (isMoving ? -swing : 0), 7, 22, 8, "#5d4037");
+
+    // Cabeza y Sombrero (Head bobbing)
+    const headY = -38 + bob;
+    drawBlock(-10, headY, 20, 20, 10, "#ffccbc"); // Cabeza
+    
+    // Sombrero Realista
+    drawBlock(-22, headY - 2, 44, 4, 15, "#3e2723"); // Ala
+    drawBlock(-12, headY - 14, 24, 12, 10, "#4e342e"); // Copa
 
     ctx.restore();
 }
 
-// --- RENDERIZADO DEL MAPA INFINITO ---
-function drawMap() {
-    const offsetX = player.x % TILE_SIZE;
-    const offsetY = player.y % TILE_SIZE;
+function drawInfiniteMap() {
+    const startX = Math.floor((world.x - width/2) / TILE_SIZE);
+    const startY = Math.floor((world.y - height/2) / TILE_SIZE);
+    const endX = startX + Math.ceil(width / TILE_SIZE) + 2;
+    const endY = startY + Math.ceil(height / TILE_SIZE) + 2;
 
-    // Calculamos cuántos tiles caben en pantalla
-    const cols = Math.ceil(width / TILE_SIZE) + 2;
-    const rows = Math.ceil(height / TILE_SIZE) + 2;
+    for (let i = startX; i < endX; i++) {
+        for (let j = startY; j < endY; j++) {
+            const px = i * TILE_SIZE - world.x + width/2;
+            const py = j * TILE_SIZE - world.y + height/2;
 
-    for (let i = -1; i < cols; i++) {
-        for (let j = -1; j < rows; j++) {
-            const posX = i * TILE_SIZE - offsetX;
-            const posY = j * TILE_SIZE - offsetY;
+            // Color de pasto con ruido de iluminación
+            const seed = (i * 12345 + j * 67890);
+            ctx.fillStyle = (i + j) % 2 === 0 ? "#4caf50" : "#43a047";
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-            // Simular coordenadas reales para el patrón de colores
-            const worldI = Math.floor((player.x + posX) / TILE_SIZE);
-            const worldJ = Math.floor((player.y + posY) / TILE_SIZE);
-
-            ctx.fillStyle = (worldI + worldJ) % 2 === 0 ? "#4caf50" : "#43a047";
-            ctx.fillRect(posX, posY, TILE_SIZE, TILE_SIZE);
-            
-            // Detalles de pasto "realista"
-            ctx.fillStyle = "rgba(255,255,255,0.1)";
-            ctx.fillRect(posX + 20, posY + 20, 2, 10);
+            // Briznas de pasto 3D simples
+            if (Math.abs(seed % 10) > 7) {
+                ctx.fillStyle = "rgba(255,255,255,0.15)";
+                ctx.fillRect(px + (seed%TILE_SIZE), py + (seed%TILE_SIZE), 2, 8);
+            }
         }
     }
 }
 
 function update() {
-    let dx = 0, dy = 0;
-    if (keys['w']) dy = -1;
-    if (keys['s']) dy = 1;
-    if (keys['a']) dx = -1;
-    if (keys['d']) dx = 1;
+    const speed = 6;
+    let targetVX = 0, targetVY = 0;
 
-    // Guardamos dirección para animación
-    player.dirY = dy !== 0;
+    if (keys['w']) targetVY = -speed;
+    if (keys['s']) targetVY = speed;
+    if (keys['a']) targetVX = -speed;
+    if (keys['d']) targetVX = speed;
 
-    if (dx !== 0 || dy !== 0) {
-        player.frame++;
-        const mag = Math.sqrt(dx*dx + dy*dy);
-        player.x += (dx/mag) * player.speed;
-        player.y += (dy/mag) * player.speed;
-    }
+    // Suavizado de movimiento (Inercia tipo Roblox)
+    player.velocity.x += (targetVX - player.velocity.x) * 0.15;
+    player.velocity.y += (targetVY - player.velocity.y) * 0.15;
 
-    // Lógica de Salto (Física simple)
-    if ((keys[' '] || keys['escape']) && !player.isJumping) {
-        player.vz = 12;
+    world.x += player.velocity.x;
+    world.y += player.velocity.y;
+
+    // Salto
+    if (keys[' '] && !player.isJumping) {
+        player.vz = 14;
         player.isJumping = true;
     }
 
     if (player.isJumping) {
         player.z += player.vz;
-        player.vz -= 0.8; // Gravedad
-        if (player.z <= 0) {
-            player.z = 0;
-            player.vz = 0;
-            player.isJumping = false;
-        }
+        player.vz -= 0.85;
+        if (player.z <= 0) { player.z = 0; player.isJumping = false; }
     }
 }
 
-function loop() {
-    ctx.clearRect(0,0, width, height);
+function render() {
+    ctx.fillStyle = "#1e1e1e";
+    ctx.fillRect(0, 0, width, height);
 
     ctx.save();
     if (view3D) {
-        // Efecto de perspectiva 3D (Tercera persona)
+        // Perspectiva FOV tipo Roblox
         ctx.translate(width/2, height/2);
-        ctx.transform(1, 0, -0.3, 0.5, 0, 0); 
-        ctx.translate(-width/2, -height/1.5);
+        ctx.transform(1.2, 0, -0.4, 0.6, 0, 0); 
+        ctx.translate(-width/2, -height/2 + 100);
     }
 
-    drawMap();
+    drawInfiniteMap();
+    drawCowboy(width/2, height/2 + (view3D ? 100 : 0));
     
-    // El personaje siempre está en el centro de la pantalla
-    // Pero si es 3D, lo bajamos un poco para que se vea mejor
-    const drawY = view3D ? player.screenY + 100 : player.screenY;
-    drawCowboy(player.screenX, drawY, view3D ? 1.5 : 1);
-
     ctx.restore();
 
+    // Viñeta ambiental
+    const grad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width);
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.4)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0, width, height);
+
     update();
-    requestAnimationFrame(loop);
+    requestAnimationFrame(render);
 }
 
-loop();
+render();
 </script>
-
 </body>
 </html>
