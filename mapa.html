@@ -2,43 +2,37 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mapa de Juego | Agustín Pro</title>
+    <title>Mapa de Despliegue | Cowboy Engine</title>
     <style>
-        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: sans-serif; }
-        #hud {
-            position: absolute; top: 20px; left: 20px; padding: 15px;
-            background: rgba(255,255,255,0.8); border: 2px solid #333;
-            color: #333; z-index: 100; border-radius: 10px;
+        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #hud-operador {
+            position: absolute; top: 20px; left: 20px; padding: 20px;
+            background: rgba(10, 10, 10, 0.9); border-left: 5px solid #ff007f;
+            color: white; z-index: 100; border-radius: 0 15px 15px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
-        #nombre-jugador { font-weight: bold; font-size: 18px; color: #222; }
-        .controles { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 10px 20px; border-radius: 20px; font-size: 12px; }
+        .stat-bar { font-size: 10px; color: #ff007f; margin-top: 5px; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <div id="hud">
-        <div id="nombre-jugador">JUGADOR</div>
-        <div style="font-size: 11px; color: #555;">MODO JUEGO ACTIVO</div>
+    <div id="hud-operador">
+        <div id="nombre-hud" style="font-weight: bold; font-size: 20px; letter-spacing: 2px;">OPERADOR</div>
+        <div class="stat-bar">SISTEMA BIO-MÉTRICO: <span style="color: #00d4ff;">ACTIVO</span></div>
     </div>
 
-    <div class="controles">Moverse: <b>W A S D</b> | Girar: <b>MOUSE</b></div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
-        let scene, camera, renderer, player, clock;
+        let scene, camera, renderer, vaquero, clock;
         let keys = {};
-        const loader = new THREE.GLTFLoader();
 
         function init() {
             scene = new THREE.Scene();
-            // CIELO CELESTE
-            scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 10, 1000); // Niebla celeste para el horizonte
+            scene.background = new THREE.Color(0x87CEEB); // CIELO CELESTE
             clock = new THREE.Clock();
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
             
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -50,71 +44,92 @@
             sun.position.set(100, 500, 100);
             scene.add(sun);
 
-            // --- 1. EL SUELO VERDE (PASTO) ---
-            const groundGeo = new THREE.PlaneGeometry(5000, 5000);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x228B22 }); // Verde Pasto
-            const ground = new THREE.Mesh(groundGeo, groundMat);
+            // EL SUELO VERDE
+            const ground = new THREE.Mesh(
+                new THREE.PlaneGeometry(10000, 10000),
+                new THREE.MeshStandardMaterial({ color: 0x228B22 }) // VERDE PASTO
+            );
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            // Grilla opcional para referencia
-            const grid = new THREE.GridHelper(5000, 100, 0x1a1a1a, 0x1a1a1a);
-            grid.material.opacity = 0.2;
-            grid.material.transparent = true;
-            scene.add(grid);
+            // --- CARGAR PERSONAJE DESDE TU PERFIL.HTML ---
+            const savedConfig = localStorage.getItem('playerConfig'); // LA LLAVE QUE USA TU PERFIL
+            const config = savedConfig ? JSON.parse(savedConfig) : { color: "#ff007f", musculo: 1, altura: 1 };
+            
+            document.getElementById('nombre-hud').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
 
-            // --- 2. CARGAR PERSONAJE (De Perfil.html) ---
-            const pData = JSON.parse(localStorage.getItem('perfil_jugador')) || { nombre: 'Agustín', color: '#ff007f' };
-            document.getElementById('nombre-jugador').innerText = pData.nombre.toUpperCase();
+            buildPlayer(config);
+            cargarEstructuras(); // Carga lo de construccion.html
 
-            const geo = new THREE.CapsuleGeometry(1.5, 3, 4, 8);
-            const mat = new THREE.MeshStandardMaterial({ color: pData.color || '#ff007f' });
-            player = new THREE.Mesh(geo, mat);
-            player.position.set(0, 5, 0); // Un poco arriba del pasto
-            scene.add(player);
-
-            // --- 3. CARGAR CIUDAD (De Construccion.html) ---
-            const datos = JSON.parse(localStorage.getItem('ciudad_db')) || [];
-            datos.forEach(item => {
-                if(item.type === 'calle') {
-                    // Calle de asfalto simple
-                    const calle = new THREE.Mesh(new THREE.BoxGeometry(40, 1, 40), new THREE.MeshStandardMaterial({color: 0x333333}));
-                    calle.position.set(item.pos.x, 0.2, item.pos.z);
-                    scene.add(calle);
-                } else {
-                    // Fallback: Pone una caja gris donde iría el modelo
-                    const box = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 10), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
-                    box.position.set(item.pos.x, 10, item.pos.z);
-                    scene.add(box);
-                }
-            });
-
-            // Controles teclado
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
 
             animate();
         }
 
+        function buildPlayer(config) {
+            vaquero = new THREE.Group();
+            const matColor = new THREE.MeshStandardMaterial({ color: config.color });
+            const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
+            torso.position.y = 1.6;
+
+            // Cabeza
+            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
+            cabeza.position.y = 2.5;
+
+            // Extremidades
+            const geoExt = new THREE.BoxGeometry(0.3, 0.9, 0.3);
+            const pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.25, 0.5, 0);
+            const pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.25, 0.5, 0);
+            const bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bIzq.position.set(-0.6, 1.7, 0);
+            const bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bDer.position.set(0.6, 1.7, 0);
+
+            // Aplicar Musculatura de tu Perfil
+            const m = parseFloat(config.musculo);
+            bIzq.scale.set(m, 1, m); bDer.scale.set(m, 1, m);
+            pIzq.scale.set(m, 1, m); pDer.scale.set(m, 1, m);
+
+            vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
+            
+            // Aplicar Altura de tu Perfil
+            vaquero.scale.y = parseFloat(config.altura);
+            
+            scene.add(vaquero);
+        }
+
+        function cargarEstructuras() {
+            const data = JSON.parse(localStorage.getItem('ciudad_db')) || [];
+            data.forEach(item => {
+                const box = new THREE.Mesh(
+                    new THREE.BoxGeometry(item.type === 'calle' ? 40 : 10, item.type === 'calle' ? 1 : 20, 10),
+                    new THREE.MeshStandardMaterial({ color: item.type === 'calle' ? 0x333333 : 0x888888 })
+                );
+                box.position.set(item.pos.x, item.type === 'calle' ? 0.2 : 10, item.pos.z);
+                scene.add(box);
+            });
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
             
-            if(player) {
-                // MOVIMIENTO WASD
-                const moveSpeed = 50 * delta;
-                const rotateSpeed = 3 * delta;
+            if(vaquero) {
+                const moveSpeed = 40 * delta;
+                const rotSpeed = 3 * delta;
 
-                if(keys['KeyW']) player.translateZ(moveSpeed);
-                if(keys['KeyS']) player.translateZ(-moveSpeed);
-                if(keys['KeyA']) player.rotation.y += rotateSpeed;
-                if(keys['KeyD']) player.rotation.y -= rotateSpeed;
+                if(keys['KeyW']) vaquero.translateZ(moveSpeed);
+                if(keys['KeyS']) vaquero.translateZ(-moveSpeed);
+                if(keys['KeyA']) vaquero.rotation.y += rotSpeed;
+                if(keys['KeyD']) vaquero.rotation.y -= rotSpeed;
 
-                // CÁMARA 3RA PERSONA (Sigue al jugador)
-                const offset = new THREE.Vector3(0, 15, -35); // Arriba y atrás
-                const worldOffset = offset.applyMatrix4(player.matrixWorld);
-                camera.position.lerp(worldOffset, 0.1); // Suavizado
-                camera.lookAt(player.position.x, player.position.y + 5, player.position.z);
+                // Cámara 3ra Persona
+                const offset = new THREE.Vector3(0, 10, -25);
+                const worldOffset = offset.applyMatrix4(vaquero.matrixWorld);
+                camera.position.lerp(worldOffset, 0.1);
+                camera.lookAt(vaquero.position.x, vaquero.position.y + 2, vaquero.position.z);
             }
 
             renderer.render(scene, camera);
