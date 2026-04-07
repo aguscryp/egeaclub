@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mundo Libre</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #ui { position: absolute; top: 20px; left: 20px; color: #ff007f; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 10px; border: 1px solid #ff007f; font-family: sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="ui">Jugador: <span id="playerName"></span></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    
+    <script src="logica.js"></script> 
+    
+    <script>
+        document.getElementById('playerName').innerText = localStorage.getItem('currentUser');
+        // Aquí se inicializa el motor Three.js llamando a las funciones de logica.js
+        initGame(); 
+    </script>
+</body>
+</html>
