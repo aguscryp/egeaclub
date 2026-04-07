@@ -2,24 +2,22 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>3D Open World Engine</title>
+    <title>3D Cowboy - Third Person Camera</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Arial', sans-serif; }
         canvas { display: block; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2); pointer-events: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px;
+            border: 2px solid #5d4037; pointer-events: none;
         }
-        .key { color: #58ff58; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <strong>3D WORLD EXPLORER</strong><br>
-    <small>Movimiento: <span class="key">WASD</span> | Cámara: <span class="key">Flechas ← →</span></small>
+    <strong>COWBOY 3D - VISTA TRASERA</strong><br>
+    <small>WASD para caminar | Flechas para girar cámara</small>
 </div>
 
 <canvas id="game"></canvas>
@@ -30,21 +28,16 @@ const ctx = canvas.getContext('2d');
 
 let width, height;
 const keys = {};
+
+// Configuración del Jugador y Cámara
 const player = {
     x: 0, y: 0, z: 0,
     angle: 0,
     speed: 5,
-    rotSpeed: 0.04,
-    walkCycle: 0
-};
-
-// Configuración de Colores y Estilo
-const COLORS = {
-    grass1: '#4caf50',
-    grass2: '#388e3c',
-    playerBody: '#3498db',
-    playerSkin: '#ffe0bd',
-    shadow: 'rgba(0,0,0,0.3)'
+    rotSpeed: 0.05,
+    walkCycle: 0,
+    distanciaCamara: 250, // Distancia detrás del personaje
+    alturaCamara: 120     // Altura de la vista
 };
 
 function resize() {
@@ -58,22 +51,27 @@ window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
 window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
 /**
- * PROYECCIÓN 3D: Convierte coordenadas de mundo a coordenadas de pantalla
+ * PROYECCIÓN 3D CON CÁMARA EN TERCERA PERSONA
  */
 function project(x, y, z) {
-    let dx = x - player.x;
-    let dy = y - player.y;
+    // 1. Posicionamos la cámara DETRÁS del personaje usando su ángulo
+    let camX = player.x - Math.sin(player.angle) * player.distanciaCamara;
+    let camY = player.y - Math.cos(player.angle) * player.distanciaCamara;
+    let camZ = player.z + player.alturaCamara;
 
-    // Rotación de la cámara (Matemática de rotación 2D)
+    // 2. Transformación relativa a la cámara
+    let dx = x - camX;
+    let dy = y - camY;
+
+    // 3. Rotación del mundo según hacia donde mira la cámara
     let rx = dx * Math.cos(-player.angle) - dy * Math.sin(-player.angle);
     let ry = dx * Math.sin(-player.angle) + dy * Math.cos(-player.angle);
     
-    // Altura relativa (z es profundidad, pero aquí y es profundidad en pantalla)
-    let rz = z - 60; // Altura de ojos del espectador
+    let rz = z - camZ;
 
-    if (ry < 1) return null; // Detrás de la cámara
+    if (ry < 10) return null; // Clipping (no dibujar lo que está muy cerca o detrás)
 
-    const fov = 800; // Campo de visión
+    const fov = 700; 
     const scale = fov / ry;
     
     return {
@@ -83,21 +81,14 @@ function project(x, y, z) {
     };
 }
 
-/**
- * DIBUJO DEL SUELO 3D CON SOMBRAS Y SEPARACIÓN
- */
-function drawInfiniteGrass() {
-    const tileSize = 150;
-    const range = 12; // Cuántos bloques vemos a la redonda
+function drawMap() {
+    const tileSize = 100;
+    const range = 15;
+    const pX = Math.floor(player.x / tileSize);
+    const pY = Math.floor(player.y / tileSize);
 
-    // Calculamos el bloque actual donde está el jugador
-    const playerTileX = Math.floor(player.x / tileSize);
-    const playerTileY = Math.floor(player.y / tileSize);
-
-    for (let i = playerTileX - range; i <= playerTileX + range; i++) {
-        for (let j = playerTileY - range; j <= playerTileY + range; j++) {
-            
-            // Esquinas del cuadrado en 3D
+    for (let i = pX - range; i <= pX + range; i++) {
+        for (let j = pY - range; j <= pY + range; j++) {
             const p1 = project(i * tileSize, j * tileSize, 0);
             const p2 = project((i + 1) * tileSize, j * tileSize, 0);
             const p3 = project((i + 1) * tileSize, (j + 1) * tileSize, 0);
@@ -111,88 +102,71 @@ function drawInfiniteGrass() {
                 ctx.lineTo(p4.x, p4.y);
                 ctx.closePath();
 
-                // Colores alternados para "separación" clara de bloques
-                ctx.fillStyle = (i + j) % 2 === 0 ? COLORS.grass1 : COLORS.grass2;
+                // Colores con separación clara
+                ctx.fillStyle = (i + j) % 2 === 0 ? "#4caf50" : "#388e3c";
                 ctx.fill();
-
-                // Líneas de cuadrícula sutiles para realzar el 3D
-                ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+                
+                // Efecto de cuadrícula para realismo de profundidad
+                ctx.strokeStyle = "rgba(0,0,0,0.05)";
                 ctx.stroke();
             }
         }
     }
 }
 
-/**
- * DIBUJO DEL PERSONAJE (Estilo Bloque con Sombras)
- */
-function drawPlayer() {
-    const bob = Math.sin(player.walkCycle) * 6; // Efecto de rebote al caminar
-    const pos = project(player.x, player.y + 120, 0); // Lo dibujamos un poco adelante
-
+function drawCowboy() {
+    const bob = Math.sin(player.walkCycle) * 5;
+    // Proyectamos al personaje en su posición real (siempre adelante de la cámara)
+    const pos = project(player.x, player.y, 0);
+    
     if (!pos) return;
     const s = pos.scale;
 
-    // 1. Sombra Proyectada en el suelo
-    ctx.fillStyle = COLORS.shadow;
+    // Sombra
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
     ctx.beginPath();
-    ctx.ellipse(pos.x, pos.y, 25 * s, 12 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(pos.x, pos.y, 25 * s, 10 * s, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // 2. Piernas (Simples con movimiento)
-    ctx.fillStyle = "#2c3e50";
-    const legW = 8 * s;
-    const legH = 15 * s;
-    ctx.fillRect(pos.x - 10 * s, pos.y - 15 * s + bob, legW, legH);
-    ctx.fillRect(pos.x + 2 * s, pos.y - 15 * s - bob, legW, legH);
-
-    // 3. Torso (Cubo azul)
-    ctx.fillStyle = COLORS.playerBody;
-    ctx.fillRect(pos.x - 15 * s, pos.y - 40 * s + bob, 30 * s, 25 * s);
+    // Cuerpo (Vaquero)
+    ctx.fillStyle = "#795548"; // Chaleco
+    ctx.fillRect(pos.x - 12 * s, pos.y - 35 * s + bob, 24 * s, 25 * s);
     
-    // Brillo en el torso para volumen
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.fillRect(pos.x - 15 * s, pos.y - 40 * s + bob, 5 * s, 25 * s);
+    // Cabeza
+    ctx.fillStyle = "#ffccbc";
+    ctx.fillRect(pos.x - 8 * s, pos.y - 48 * s + bob, 16 * s, 16 * s);
 
-    // 4. Cabeza
-    ctx.fillStyle = COLORS.playerSkin;
-    ctx.fillRect(pos.x - 8 * s, pos.y - 55 * s + bob, 16 * s, 16 * s);
-
-    // 5. Cara (Ojos)
-    ctx.fillStyle = '#000';
-    ctx.fillRect(pos.x - 5 * s, pos.y - 50 * s + bob, 2 * s, 2 * s);
-    ctx.fillRect(pos.x + 3 * s, pos.y - 50 * s + bob, 2 * s, 2 * s);
+    // Sombrero
+    ctx.fillStyle = "#3e2723";
+    ctx.fillRect(pos.x - 18 * s, pos.y - 50 * s + bob, 36 * s, 4 * s); // Ala
+    ctx.fillRect(pos.x - 10 * s, pos.y - 60 * s + bob, 20 * s, 12 * s); // Copa
 }
 
 function update() {
-    // Rotación de Cámara
     if (keys['arrowleft']) player.angle -= player.rotSpeed;
     if (keys['arrowright']) player.angle += player.rotSpeed;
 
-    // Movimiento Relativo a la Cámara (WASD)
-    let moveX = 0;
-    let moveY = 0;
+    let dx = 0, dy = 0;
+    if (keys['w']) { dx = Math.sin(player.angle); dy = Math.cos(player.angle); }
+    if (keys['s']) { dx = -Math.sin(player.angle); dy = -Math.cos(player.angle); }
+    if (keys['a']) { dx = -Math.cos(player.angle); dy = Math.sin(player.angle); }
+    if (keys['d']) { dx = Math.cos(player.angle); dy = -Math.sin(player.angle); }
 
-    if (keys['w']) { moveX += Math.sin(player.angle); moveY += Math.cos(player.angle); }
-    if (keys['s']) { moveX -= Math.sin(player.angle); moveY -= Math.cos(player.angle); }
-    if (keys['a']) { moveX -= Math.cos(player.angle); moveY += Math.sin(player.angle); }
-    if (keys['d']) { moveX += Math.cos(player.angle); moveY -= Math.sin(player.angle); }
-
-    if (moveX !== 0 || moveY !== 0) {
-        player.x += moveX * player.speed;
-        player.y += moveY * player.speed;
+    if (dx !== 0 || dy !== 0) {
+        player.x += dx * player.speed;
+        player.y += dy * player.speed;
         player.walkCycle += 0.2;
     }
 }
 
 function loop() {
-    // Limpiar pantalla con color de cielo
+    // Fondo de cielo
     ctx.fillStyle = "#87CEEB";
     ctx.fillRect(0, 0, width, height);
 
     update();
-    drawInfiniteGrass();
-    drawPlayer();
+    drawMap();
+    drawCowboy();
 
     requestAnimationFrame(loop);
 }
