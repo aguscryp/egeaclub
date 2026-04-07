@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Elementor | Creador de Mundos</title>
+    <style>
+        :root { --pink: #ff007f; --neon: #00d4ff; }
+        body { margin: 0; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
+        
+        /* Panel Lateral Izquierdo (Neon Flow) */
+        #toolbar {
+            width: 280px; height: 100vh; background: rgba(15, 15, 15, 0.8);
+            backdrop-filter: blur(15px); border-right: 2px solid var(--pink);
+            padding: 25px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;
+            box-shadow: 10px 0 30px rgba(255, 0, 127, 0.1); z-index: 10;
+        }
+
+        h2 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        
+        .btn-obj {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white; padding: 15px; border-radius: 8px; cursor: pointer;
+            transition: all 0.3s; text-align: left; font-size: 14px;
+        }
+        .btn-obj:hover { background: var(--pink); border-color: var(--pink); transform: translateX(5px); box-shadow: 0 0 15px var(--pink); }
+        
+        #btn-limpiar { margin-top: auto; background: #331111; color: #ff5555; border: 1px solid #ff5555; }
+        #btn-limpiar:hover { background: #ff5555; color: white; }
+
+        /* Area del Mapa */
+        #viewport { flex-grow: 1; position: relative; cursor: crosshair; }
+        #info-puntero {
+            position: absolute; bottom: 20px; left: 300px;
+            font-size: 12px; color: var(--neon); background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <h2>Elementor</h2>
+        <p style="font-size: 11px; color: #888;">Agregá objetos al mapa de Agustín</p>
+        
+        <button class="btn-obj" onclick="setObjeto('calle')">🛣️ Agregar Calle (50x50)</button>
+        <button class="btn-obj" onclick="setObjeto('casa')">🏠 Agregar Casa</button>
+        <button class="btn-obj" onclick="setObjeto('animal')">🐕 Agregar Animal (Box)</button>
+        <button class="btn-obj" onclick="setObjeto('arbol')">🌳 Agregar Árbol</button>
+
+        <button id="btn-limpiar" class="btn-obj" onclick="limpiarMundo()">🗑️ Borrar Todo el Mapa</button>
+    </div>
+
+    <div id="viewport">
+        <div id="info-puntero">X: 0 | Z: 0 (Click para colocar)</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let scene, camera, renderer, raycaster, mouse;
+        let selectedType = 'calle';
+        let grid;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111111);
+            
+            camera = new THREE.PerspectiveCamera(50, (window.innerWidth - 280) / window.innerHeight, 0.1, 5000);
+            camera.position.set(200, 300, 200);
+            camera.lookAt(0,0,0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth - 280, window.innerHeight);
+            document.getElementById('viewport').appendChild(renderer.domElement);
+
+            const light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(50, 100, 50);
+            scene.add(light, new THREE.AmbientLight(0xffffff, 0.5));
+
+            // Grilla para posicionar
+            grid = new THREE.GridHelper(2000, 40, 0x333333, 0x222222);
+            scene.add(grid);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Cargar objetos existentes
+            dibujarObjetosGuardados();
+
+            window.addEventListener('mousedown', onClick);
+            window.addEventListener('mousemove', onMove);
+            animate();
+        }
+
+        function setObjeto(type) {
+            selectedType = type;
+            console.log("Seleccionado: " + type);
+        }
+
+        function onMove(e) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(grid);
+            if (intersects.length > 0) {
+                const pt = intersects[0].point;
+                document.getElementById('info-puntero').innerText = `X: ${Math.round(pt.x)} | Z: ${Math.round(pt.z)} | Objeto: ${selectedType}`;
+            }
+        }
+
+        function onClick(e) {
+            if (e.button !== 0) return; // Solo click izquierdo
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(grid);
+            
+            if (intersects.length > 0) {
+                const pt = intersects[0].point;
+                const nuevoObjeto = {
+                    type: selectedType,
+                    pos: { x: Math.round(pt.x / 5) * 5, z: Math.round(pt.z / 5) * 5 } // Snap a grilla
+                };
+
+                // Guardar en LocalStorage
+                const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+                data.push(nuevoObjeto);
+                localStorage.setItem('elementos_ciudad', JSON.stringify(data));
+
+                // Dibujar en el editor
+                dibujarObjeto(nuevoObjeto);
+            }
+        }
+
+        function dibujarObjeto(obj) {
+            let geo, mat;
+            if (obj.type === 'calle') {
+                geo = new THREE.BoxGeometry(50, 0.5, 50);
+                mat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            } else if (obj.type === 'casa') {
+                geo = new THREE.BoxGeometry(15, 15, 15);
+                mat = new THREE.MeshStandardMaterial({ color: 0xff007f });
+            } else {
+                geo = new THREE.BoxGeometry(5, 5, 5);
+                mat = new THREE.MeshStandardMaterial({ color: 0x00d4ff });
+            }
+            
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(obj.pos.x, geo.parameters.height/2, obj.pos.z);
+            scene.add(mesh);
+        }
+
+        function dibujarObjetosGuardados() {
+            const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+            data.forEach(dibujarObjeto);
+        }
+
+        function limpiarMundo() {
+            if(confirm("¿Seguro que querés borrar todo el mundo?")) {
+                localStorage.removeItem('elementos_ciudad');
+                location.reload();
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            // Rotación suave de cámara para ver el mapa
+            camera.position.x = 400 * Math.sin(Date.now() * 0.0001);
+            camera.position.z = 400 * Math.cos(Date.now() * 0.0001);
+            camera.lookAt(0,0,0);
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
