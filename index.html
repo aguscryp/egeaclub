@@ -3,93 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Juego de Bloques 2D - Base</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <title>Prototipo Mundo Bloques 2D</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
-        canvas { display: block; margin: 0 auto; }
+        /* CSS para centrar el juego y que se vea limpio */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222; /* Fondo oscuro fuera del juego */
+            overflow: hidden; /* Evita scrolls */
+            color: white;
+            font-family: sans-serif;
+        }
+
+        #contenedor-juego {
+            position: relative;
+        }
+
+        canvas {
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            background-color: #eee; /* Color de carga */
+        }
+
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 10px;
+            border-radius: 5px;
+            pointer-events: none; /* No interfiere con el clicks */
+        }
     </style>
 </head>
 <body>
 
-<script>
-// --- CONFIGURACIÓN DEL JUEGO ---
-const config = {
-    type: Phaser.AUTO, // Elige WebGL o Canvas automáticamente
-    width: 800,        // Ancho de la pantalla del juego
-    height: 600,       // Alto de la pantalla del juego
-    physics: {         // Activamos el motor de físicas
-        default: 'arcade',
-        arcade: {
-            gravity: { y: 0 }, // Sin gravedad para movimiento libre 2D
-            debug: false       // Cambia a true para ver rectángulos de colisión
+    <div id="contenedor-juego">
+        <div id="ui">Usa las flechas para moverte</div>
+        <canvas id="canvasJuego" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        // --- CONFIGURACIÓN Y JAVASCRIPT ---
+
+        const canvas = document.getElementById('canvasJuego');
+        const ctx = canvas.getContext('2d'); // El contexto de dibujo 2D
+
+        // Configuración del mundo
+        const TAMAÑO_TILE = 40; // Tamaño de cada "bloque" o cuadrado del mapa (px)
+        const ANCHO_MAPA = canvas.width / TAMAÑO_TILE; // Cuántos bloques de ancho
+        const ALTO_MAPA = canvas.height / TAMAÑO_TILE; // Cuántos bloques de alto
+
+        // --- EL JUGADOR (Estilo bloque Roblox/Minecraft) ---
+        // Lo definimos como un objeto con su posición, tamaño y velocidad
+        const jugador = {
+            // Posición inicial (centrado en el mapa)
+            x: (canvas.width / 2) - (TAMAÑO_TILE / 2),
+            y: (canvas.height / 2) - (TAMAÑO_TILE / 2),
+            ancho: TAMAÑO_TILE * 0.8, // Un poco más pequeño que el bloque para que se vea mejor
+            alto: TAMAÑO_TILE * 0.8,
+            colorCuerpo: '#e74c3c', // Rojo Roblox
+            colorCara: '#f1c40f',    // Amarillo para los "ojos"
+            velocidad: 5,            // Píxeles por frame
+            movimiento: { x: 0, y: 0 } // Dirección actual
+        };
+
+        // --- SISTEMA DE CONTROLES ---
+        // Objeto para rastrear qué teclas están presionadas
+        const teclas = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        // Escuchamos cuando se presiona una tecla
+        window.addEventListener('keydown', e => {
+            if (teclas.hasOwnProperty(e.key)) {
+                teclas[e.key] = true;
+                e.preventDefault(); // Evita que la página haga scroll
+            }
+        });
+
+        // Escuchamos cuando se suelta una tecla
+        window.addEventListener('keyup', e => {
+            if (teclas.hasOwnProperty(e.key)) {
+                teclas[e.key] = false;
+            }
+        });
+
+
+        // --- FUNCIONES DE DIBUJO ---
+
+        function dibujarMapa() {
+            // Dibujamos el suelo de pasto corto
+            // Usamos dos tonos de verde para simular bloques (patrón de damas)
+            const verdeOscuro = '#2d922d';
+            const verdeClaro = '#3cb03c';
+
+            for (let y = 0; y < ALTO_MAPA; y++) {
+                for (let x = 0; x < ANCHO_MAPA; x++) {
+                    // Alternar color
+                    ctx.fillStyle = (x + y) % 2 === 0 ? verdeClaro : verdeOscuro;
+                    
+                    // Dibujar el cuadrado (tile)
+                    ctx.fillRect(x * TAMAÑO_TILE, y * TAMAÑO_TILE, TAMAÑO_TILE, TAMAÑO_TILE);
+                    
+                    // Opcional: Dibujar una línea sutil de cuadrícula
+                    /*
+                    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+                    ctx.strokeRect(x * TAMAÑO_TILE, y * TAMAÑO_TILE, TAMAÑO_TILE, TAMAÑO_TILE);
+                    */
+                }
+            }
         }
-    },
-    scene: {
-        preload: preload,
-        create: create,
-        update: update
-    }
-};
 
-// Iniciamos el juego con la configuración
-const game = new Phaser.Game(config);
+        function dibujarJugador() {
+            // Dibujamos el cuerpo del personaje (un cuadrado)
+            ctx.fillStyle = jugador.colorCuerpo;
+            ctx.fillRect(jugador.x, jugador.y, jugador.ancho, jugador.alto);
 
-// Variables globales para el personaje y los controles
-let player;
-let cursors;
-const playerSpeed = 200; // Velocidad de movimiento
+            // Detalles del personaje (estilo bloque simple)
+            // Añadimos una "cara" simple para saber hacia dónde mira (asumimos que mira "al frente" o abajo por defecto)
+            ctx.fillStyle = jugador.colorCara;
+            
+            // Ojos simples
+            const tamañoOjo = jugador.ancho * 0.2;
+            const separacionOjos = jugador.ancho * 0.2;
+            
+            // Ojo izquierdo
+            ctx.fillRect(
+                jugador.x + separacionOjos, 
+                jugador.y + jugador.alto * 0.2, 
+                tamañoOjo, 
+                tamañoOjo
+            );
+            
+            // Ojo derecho
+            ctx.fillRect(
+                jugador.x + jugador.ancho - separacionOjos - tamañoOjo, 
+                jugador.y + jugador.alto * 0.2, 
+                tamañoOjo, 
+                tamañoOjo
+            );
+        }
 
-// --- FASE 1: PRELOAD (Cargar recursos) ---
-function preload() {
-    // Cargamos las imágenes desde la carpeta 'assets'
-    this.load.image('pasto', 'assets/grass.png');
-    this.load.image('jugador', 'assets/player.png');
-}
 
-// --- FASE 2: CREATE (Crear objetos al inicio) ---
-function create() {
-    // 1. Crear el Mapa de Pasto (Mosaico/Tiling)
-    // Creamos un 'tileSprite' que repite la imagen de pasto por todo el mapa.
-    // Usamos el doble del ancho/alto para que cubra todo si movemos la cámara luego.
-    this.add.tileSprite(0, 0, 1600, 1200, 'pasto').setOrigin(0, 0);
+        // --- LÓGICA DEL JUEGO (Actualización) ---
 
-    // 2. Crear el Personaje
-    // Lo posicionamos en el centro de la pantalla (config.width/2, config.height/2)
-    player = this.physics.add.sprite(config.width / 2, config.height / 2, 'jugador');
+        function actualizarLógica() {
+            // Reiniciamos vector de movimiento
+            jugador.movimiento.x = 0;
+            jugador.movimiento.y = 0;
 
-    // Hacemos que el personaje choque con los límites del mundo (la pantalla)
-    player.setCollideWorldBounds(true);
+            // Procesamos inputs
+            if (teclas.ArrowUp)    jugador.movimiento.y = -1;
+            if (teclas.ArrowDown)  jugador.movimiento.y = 1;
+            if (teclas.ArrowLeft)  jugador.movimiento.x = -1;
+            if (teclas.ArrowRight) jugador.movimiento.x = 1;
 
-    // 3. Configurar Controles
-    // Crea un objeto con las teclas de flecha (arriba, abajo, izquierda, derecha)
-    cursors = this.input.keyboard.createCursorKeys();
-}
+            // --- Movimiento Tipo Roblox/Minecraft (Velocidad Constante) ---
+            // Si nos movemos en diagonal (ej: arriba y derecha), la velocidad se sumaría
+            // y el personaje iría más rápido. Tenemos que "normalizar" el vector.
+            
+            let vx = jugador.movimiento.x;
+            let vy = jugador.movimiento.y;
 
-// --- FASE 3: UPDATE (Se ejecuta en cada frame, aprox 60 veces por segundo) ---
-function update() {
-    // Detenemos el movimiento previo (si no se presiona nada, se para)
-    player.setVelocity(0);
+            if (vx !== 0 && vy !== 0) {
+                // Si es diagonal, multiplicamos por 0.7071 (la inversa de la raíz de 2)
+                // para que la velocidad total sea siempre la misma.
+                vx *= 0.7071;
+                vy *= 0.7071;
+            }
 
-    // Movimiento Horizontal
-    if (cursors.left.isDown) {
-        player.setVelocityX(-playerSpeed);
-    } else if (cursors.right.isDown) {
-        player.setVelocityX(playerSpeed);
-    }
+            // Aplicamos la velocidad y actualizamos la posición
+            let nuevaX = jugador.x + (vx * jugador.velocidad);
+            let nuevaY = jugador.y + (vy * jugador.velocidad);
 
-    // Movimiento Vertical
-    if (cursors.up.isDown) {
-        player.setVelocityY(-playerSpeed);
-    } else if (cursors.down.isDown) {
-        player.setVelocityY(playerSpeed);
-    }
+            // --- COLISIONES CON LOS BORDES DEL MAPA ---
+            // Evitamos que el personaje se salga del canvas
+            if (nuevaX < 0) nuevaX = 0;
+            if (nuevaX + jugador.ancho > canvas.width) nuevaX = canvas.width - jugador.ancho;
+            
+            if (nuevaY < 0) nuevaY = 0;
+            if (nuevaY + jugador.alto > canvas.height) nuevaY = canvas.height - jugador.alto;
 
-    // Normalizar velocidad diagonal (para que no vaya más rápido en diagonal)
-    // Esto es muy importante para el "feeling" tipo Minecraft/Roblox
-    player.body.velocity.normalize().scale(playerSpeed);
-}
-</script>
+            // Aplicamos la posición final validada
+            jugador.x = nuevaX;
+            jugador.y = nuevaY;
+        }
 
+
+        // --- BUCLE PRINCIPAL DEL JUEGO (Game Loop) ---
+
+        function bucleJuego() {
+            // 1. Limpiar el canvas (borrar el frame anterior)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Actualizar la lógica (movimiento, colisiones)
+            actualizarLógica();
+
+            // 3. Dibujar todo
+            dibujarMapa();
+            dibujarJugador();
+
+            // 4. Llamar al siguiente frame
+            // Esta función le dice al navegador que ejecute bucleJuego en el próximo refresco de pantalla
+            requestAnimationFrame(bucleJuego);
+        }
+
+        // --- INICIAR EL JUEGO ---
+        bucleJuego();
+
+    </script>
 </body>
 </html>
