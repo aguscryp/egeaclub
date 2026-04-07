@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Menu Perfil</title>
+    <style>
+        body { background: #0a0a0a; color: white; font-family: 'Segoe UI', sans-serif; padding: 50px; }
+        .setup-container { display: flex; gap: 50px; justify-content: center; }
+        .preview { width: 200px; height: 300px; border: 2px solid #ff007f; background: #1a1a1a; border-radius: 20px; display: flex; align-items: center; justify-content: center; }
+        .controls { background: #151515; padding: 30px; border-radius: 20px; border-left: 5px solid #ff007f; }
+        select, input { display: block; margin-bottom: 20px; width: 100%; padding: 10px; background: #000; color: #ff007f; border: 1px solid #ff007f; border-radius: 5px; }
+        .btn-play { background: #ff007f; color: white; padding: 15px 40px; border: none; border-radius: 10px; font-size: 20px; cursor: pointer; width: 100%; box-shadow: 0 0 15px #ff007f; }
+    </style>
+</head>
+<body>
+    <h1 id="welcome" class="pink-text">Configura tu personaje</h1>
+    <div class="setup-container">
+        <div class="controls">
+            <label>Color de Camisa:</label>
+            <input type="color" id="colorCamisa" value="#795548">
+            
+            <label>Tipo de Sombrero:</label>
+            <select id="tipoSombrero">
+                <option value="cowboy">Vaquero Clásico</option>
+                <option value="neon">Neon Flow Hat</option>
+            </select>
+
+            <button class="btn-play" onclick="irAlMapa()">¡JUGAR!</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('welcome').innerText = "Bienvenido, " + localStorage.getItem('currentUser');
+        
+        function irAlMapa() {
+            const config = {
+                color: document.getElementById('colorCamisa').value,
+                sombrero: document.getElementById('tipoSombrero').value
+            };
+            localStorage.setItem('playerConfig', JSON.stringify(config));
+            window.location.href = "mapa.html";
+        }
+    </script>
+</body>
+</html>
