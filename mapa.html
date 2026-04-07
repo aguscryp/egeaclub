@@ -2,34 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>City Play | Agustín Pro</title>
+    <title>Mapa Interactivo | Agustín Pro</title>
     <style>
-        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         #hud {
             position: absolute; top: 20px; left: 20px; padding: 15px;
-            background: rgba(0,0,0,0.9); border-left: 5px solid #ff007f;
-            color: white; z-index: 100; box-shadow: 0 0 15px rgba(255,0,127,0.3);
-        }
-        .loading-screen {
-            position: fixed; inset: 0; background: #000; display: flex; 
-            align-items: center; justify-content: center; z-index: 1000; color: #ff007f;
+            background: rgba(0,0,0,0.8); border-left: 4px solid #ff007f;
+            color: white; z-index: 100;
         }
     </style>
 </head>
 <body>
 
-    <div id="loader" class="loading-screen">INICIANDO MOTOR 3D...</div>
-
     <div id="hud">
-        <div id="nombre-player" style="font-weight: bold; font-size: 18px; color: #ff007f;">CARGANDO...</div>
-        <div style="font-size: 10px; color: #00d4ff; letter-spacing: 1px;">MODO JUGADOR ACTIVO</div>
+        <div id="user-display" style="color: #ff007f; font-weight: bold; font-size: 18px;">JUGADOR</div>
+        <div style="font-size: 10px; color: #00d4ff; letter-spacing: 1px;">WASD PARA CAMINAR</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
-        let scene, camera, renderer, clock, player;
+        let scene, camera, renderer, player, clock;
         let keys = {};
         const loader = new THREE.GLTFLoader();
 
@@ -38,106 +32,84 @@
             scene.background = new THREE.Color(0x050505);
             clock = new THREE.Clock();
 
-            // Cámara inicial alta para no ver negro
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
-            camera.position.set(0, 50, 100);
-
+            
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Luces potentes
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-            sun.position.set(100, 300, 100);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const sun = new THREE.DirectionalLight(0xffffff, 1);
+            sun.position.set(100, 500, 100);
             scene.add(sun);
 
-            // SUELO DE EMERGENCIA (Para no caer al vacío)
-            const floorGeo = new THREE.PlaneGeometry(5000, 5000);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            scene.add(floor);
-            scene.add(new THREE.GridHelper(5000, 100, 0x222222, 0x222222));
+            // 1. CARGAR PERSONAJE (De perfil.html)
+            const perfil = JSON.parse(localStorage.getItem('perfil_jugador')) || { nombre: 'Agustín', color: '#ff007f' };
+            document.getElementById('user-display').innerText = perfil.nombre.toUpperCase();
 
-            // 1. CARGAR JUGADOR
-            setupPlayer();
+            const geo = new THREE.CapsuleGeometry(1.5, 3, 4, 8);
+            const mat = new THREE.MeshStandardMaterial({ color: perfil.color });
+            player = new THREE.Mesh(geo, mat);
+            player.position.set(0, 5, 0);
+            scene.add(player);
 
-            // 2. CARGAR CIUDAD (Sin bloquear el renderizado)
-            cargarMundo();
+            // Suelo base para que no sea todo negro
+            const grid = new THREE.GridHelper(5000, 100, 0x222222, 0x111111);
+            scene.add(grid);
+
+            // 2. SINCRONIZAR ESTRUCTURAS (De construccion.html)
+            sincronizarMundo();
 
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
 
-            document.getElementById('loader').style.display = 'none';
             animate();
         }
 
-        function setupPlayer() {
-            // Intentamos leer el perfil, si no hay nada ponemos uno por defecto
-            const pData = localStorage.getItem('perfil_jugador') || localStorage.getItem('usuario_perfil');
-            const perfil = pData ? JSON.parse(pData) : { nombre: "Agustín", color: "#ff007f" };
-            
-            document.getElementById('nombre-player').innerText = perfil.nombre.toUpperCase();
-
-            const geo = new THREE.CapsuleGeometry(1.5, 3, 4, 8);
-            const mat = new THREE.MeshStandardMaterial({ color: perfil.color || 0xff007f });
-            player = new THREE.Mesh(geo, mat);
-            player.position.set(0, 5, 0); // Un poco arriba del suelo
-            scene.add(player);
-        }
-
-        function cargarMundo() {
-            // Buscamos la base de datos del constructor
-            const saved = localStorage.getItem('ciudad_db') || localStorage.getItem('mi_ciudad_viva') || localStorage.getItem('agustin_city_save');
-            if(!saved) return;
-
-            const items = JSON.parse(saved);
-            items.forEach(item => {
+        function sincronizarMundo() {
+            // Lee lo que guardaste en construccion.html
+            const data = JSON.parse(localStorage.getItem('ciudad_db')) || [];
+            data.forEach(item => {
                 if(item.type === 'calle') {
-                    const c = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 40), new THREE.MeshStandardMaterial({color: 0x151515}));
-                    c.position.set(item.pos.x, 0.2, item.pos.z);
+                    const c = new THREE.Mesh(new THREE.BoxGeometry(40, 1, 40), new THREE.MeshStandardMaterial({color: 0x151515}));
+                    c.position.set(item.pos.x, 0, item.pos.z);
                     scene.add(c);
                 } else {
-                    // Si es un modelo, lo cargamos (esto es asíncrono, no traba la pantalla)
-                    const urls = {
-                        'edificio': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Buildings.glb',
-                        'casa': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/SheenChair.glb'
-                    };
-                    if(urls[item.type]) {
-                        loader.load(urls[item.type], (gltf) => {
-                            const m = gltf.scene;
-                            m.position.set(item.pos.x, 0, item.pos.z);
-                            m.rotation.y = item.rot;
-                            if(item.type === 'edificio') m.scale.set(40, 40, 40);
-                            scene.add(m);
-                        });
-                    }
+                    // Intenta cargar el .glb si existe el archivo
+                    loader.load(item.type + '.glb', (gltf) => {
+                        const m = gltf.scene;
+                        m.position.set(item.pos.x, 0, item.pos.z);
+                        m.rotation.y = item.rot;
+                        scene.add(m);
+                    }, undefined, () => {
+                        // Si no encuentra el archivo, pone un bloque para que sepas que ahí va algo
+                        const box = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 10), new THREE.MeshStandardMaterial({color: 0x333333}));
+                        box.position.set(item.pos.x, 10, item.pos.z);
+                        scene.add(box);
+                    });
                 }
             });
         }
 
-        function update() {
-            if(!player) return;
-            const delta = clock.getDelta();
-            const moveSpeed = (keys['ShiftLeft'] ? 60 : 30) * delta;
-            const rotateSpeed = 3 * delta;
-
-            if(keys['KeyA']) player.rotation.y += rotateSpeed;
-            if(keys['KeyD']) player.rotation.y -= rotateSpeed;
-            if(keys['KeyW']) player.translateZ(moveSpeed);
-            if(keys['KeyS']) player.translateZ(-moveSpeed);
-
-            // CÁMARA SIGUIENTE
-            const offset = new THREE.Vector3(0, 15, -35); 
-            const worldOffset = offset.applyMatrix4(player.matrixWorld);
-            camera.position.lerp(worldOffset, 0.1);
-            camera.lookAt(player.position.x, player.position.y + 5, player.position.z);
-        }
-
         function animate() {
             requestAnimationFrame(animate);
-            update();
+            const delta = clock.getDelta();
+            
+            if(player) {
+                // MOVIMIENTO JUGADOR
+                const moveSpeed = 40 * delta;
+                if(keys['KeyW']) player.translateZ(moveSpeed);
+                if(keys['KeyS']) player.translateZ(-moveSpeed);
+                if(keys['KeyA']) player.rotation.y += 3 * delta;
+                if(keys['KeyD']) player.rotation.y -= 3 * delta;
+
+                // CÁMARA 3RA PERSONA
+                const offset = new THREE.Vector3(0, 15, -30);
+                const worldOffset = offset.applyMatrix4(player.matrixWorld);
+                camera.position.copy(worldOffset);
+                camera.lookAt(player.position);
+            }
+
             renderer.render(scene, camera);
         }
 
