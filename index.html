@@ -2,13 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>3D Cowboy Real Engine - WASD & Jump</title>
+    <title>3D Cowboy Engine Pro - Realistic Movement</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2); pointer-events: none;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); pointer-events: none;
+            backdrop-filter: blur(5px);
         }
         canvas { display: block; }
     </style>
@@ -16,8 +17,8 @@
 <body>
 
 <div id="ui">
-    <strong>COWBOY 3D REAL</strong><br>
-    <small><b>WASD</b>: Caminar | <b>ESPACIO</b>: Saltar<br>Usa el <b>Ratón</b> para orbitar la vista</small>
+    <strong>COWBOY PRO SIMULATOR</strong><br>
+    <small>Mover: <b>WASD</b> | Saltar: <b>Espacio</b><br>Girar Cámara: <b>Clic Derecho + Arrastrar</b></small>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -25,65 +26,70 @@
 
 <script>
 let scene, camera, renderer, controls;
-let vaquero, suelo;
+let vaquero, piernaIzq, piernaDer, brazoIzq, brazoDer;
 const keys = {};
 
-// Configuración de Físicas y Movimiento
 const config = {
-    speed: 0.15,
-    jumpForce: 0.25,
-    gravity: 0.01,
+    speed: 0.2,
+    jumpForce: 0.3,
+    gravity: 0.012,
     vY: 0,
     isJumping: false,
     walkCycle: 0
 };
 
 function init() {
-    // 1. ESCENA Y CIELO
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB); 
 
-    // 2. CÁMARA
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 15);
+    camera.position.set(0, 8, 15);
 
-    // 3. RENDERER
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true; // Sombras activadas
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombras suaves realistas
     document.body.appendChild(renderer.domElement);
 
-    // 4. LUCES
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    // ILUMINACIÓN PRO
+    const ambient = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambient);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(10, 20, 10);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    sun.position.set(20, 40, 20);
     sun.castShadow = true;
+    // Ajuste de resolución de sombra para diferenciar personaje del piso
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.left = -50;
+    sun.shadow.camera.right = 50;
+    sun.shadow.camera.top = 50;
+    sun.shadow.camera.bottom = -50;
     scene.add(sun);
 
-    // 5. MAPA / TIERRA 3D
-    const groundGeo = new THREE.PlaneGeometry(200, 200);
+    // SUELO CON TEXTURA DE CUADRÍCULA (Para mejor percepción 3D)
+    const groundGeo = new THREE.PlaneGeometry(500, 500);
     const groundMat = new THREE.MeshStandardMaterial({ color: 0x4caf50 });
-    suelo = new THREE.Mesh(groundGeo, groundMat);
+    const suelo = new THREE.Mesh(groundGeo, groundMat);
     suelo.rotation.x = -Math.PI / 2;
     suelo.receiveShadow = true;
     scene.add(suelo);
 
-    // Agregar algunos bloques decorativos (casas/obstáculos)
-    crearObstaculo(10, 5, -10);
-    crearObstaculo(-15, 5, -20);
-
-    // 6. CREAR VAQUERO
     crearVaquero();
 
-    // 7. CONTROLES DE CÁMARA
+    // CONTROLES DE CÁMARA OPTIMIZADOS
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // Suavizado de cámara
-    controls.minDistance = 5;
-    controls.maxDistance = 30;
+    controls.mouseButtons = {
+        ORBIT: THREE.MOUSE.RIGHT, // Solo clic derecho para rotar
+        ZOOM: THREE.MOUSE.MIDDLE,
+        PAN: THREE.MOUSE.LEFT
+    };
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.1; // Rotación fluida
+    controls.rotateSpeed = 1.5;   // Más rápido como pediste
+    controls.minDistance = 8;
+    controls.maxDistance = 40;
 
-    // Eventos
     window.addEventListener('keydown', (e) => keys[e.code] = true);
     window.addEventListener('keyup', (e) => keys[e.code] = false);
     window.addEventListener('resize', onWindowResize);
@@ -91,55 +97,51 @@ function init() {
 
 function crearVaquero() {
     vaquero = new THREE.Group();
+    const matCuero = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+    const matCamisa = new THREE.MeshStandardMaterial({ color: 0x795548 });
+    const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
 
-    // Piernas (Marrones)
-    const legGeo = new THREE.BoxGeometry(0.4, 0.8, 0.4);
-    const legMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
-    const pI = new THREE.Mesh(legGeo, legMat);
-    pI.position.set(-0.3, 0.4, 0);
-    pI.castShadow = true;
-    const pD = pI.clone();
-    pD.position.x = 0.3;
-    vaquero.add(pI, pD);
+    // PIERNAS INDEPENDIENTES
+    const legGeo = new THREE.BoxGeometry(0.35, 1.0, 0.35);
+    piernaIzq = new THREE.Mesh(legGeo, matCuero);
+    piernaIzq.position.set(-0.25, 0.5, 0);
+    piernaIzq.castShadow = true;
+    
+    piernaDer = piernaIzq.clone();
+    piernaDer.position.x = 0.25;
+    
+    vaquero.add(piernaIzq, piernaDer);
 
-    // Torso (Marrón claro)
-    const torsoGeo = new THREE.BoxGeometry(1, 1.2, 0.6);
-    const torsoMat = new THREE.MeshStandardMaterial({ color: 0x795548 });
-    const torso = new THREE.Mesh(torsoGeo, torsoMat);
-    torso.position.y = 1.4;
+    // TORSO
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.5), matCamisa);
+    torso.position.y = 1.6;
     torso.castShadow = true;
     vaquero.add(torso);
 
-    // Cabeza
-    const headGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 2.3;
+    // BRAZOS INDEPENDIENTES
+    const armGeo = new THREE.BoxGeometry(0.3, 1.0, 0.3);
+    brazoIzq = new THREE.Mesh(armGeo, matCamisa);
+    brazoIzq.position.set(-0.65, 1.7, 0);
+    brazoIzq.castShadow = true;
+    
+    brazoDer = brazoIzq.clone();
+    brazoDer.position.x = 0.65;
+    vaquero.add(brazoIzq, brazoDer);
+
+    // CABEZA Y SOMBRERO
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), matPiel);
+    head.position.y = 2.5;
     head.castShadow = true;
     vaquero.add(head);
 
-    // Sombrero Vaquero
-    const brimGeo = new THREE.BoxGeometry(1.6, 0.1, 1.4); // Ala
-    const crownGeo = new THREE.BoxGeometry(0.8, 0.5, 0.7); // Copa
-    const hatMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
-    const brim = new THREE.Mesh(brimGeo, hatMat);
-    brim.position.y = 2.7;
-    const crown = new THREE.Mesh(crownGeo, hatMat);
-    crown.position.y = 3.0;
-    vaquero.add(brim, crown);
+    const hatBrim = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 1.2), matCuero);
+    hatBrim.position.y = 2.85;
+    const hatTop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.6), matCuero);
+    hatTop.position.y = 3.1;
+    hatBrim.castShadow = true;
+    vaquero.add(hatBrim, hatTop);
 
     scene.add(vaquero);
-}
-
-function crearObstaculo(x, y, z) {
-    const box = new THREE.Mesh(
-        new THREE.BoxGeometry(5, 5, 5),
-        new THREE.MeshStandardMaterial({ color: 0xa1887f })
-    );
-    box.position.set(x, 2.5, z);
-    box.castShadow = true;
-    box.receiveShadow = true;
-    scene.add(box);
 }
 
 function onWindowResize() {
@@ -149,22 +151,38 @@ function onWindowResize() {
 }
 
 function update() {
-    let moving = false;
+    let isMoving = false;
+    const prevPos = vaquero.position.clone();
 
-    // Movimiento Relativo a la rotación del personaje
-    if (keys['KeyW']) { vaquero.translateZ(-config.speed); moving = true; }
-    if (keys['KeyS']) { vaquero.translateZ(config.speed); moving = true; }
-    if (keys['KeyA']) { vaquero.rotation.y += 0.05; moving = true; }
-    if (keys['KeyD']) { vaquero.rotation.y -= 0.05; moving = true; }
+    // MOVIMIENTO WASD
+    if (keys['KeyW']) { vaquero.translateZ(-config.speed); isMoving = true; }
+    if (keys['KeyS']) { vaquero.translateZ(config.speed); isMoving = true; }
+    if (keys['KeyA']) { vaquero.rotation.y += 0.06; isMoving = true; }
+    if (keys['KeyD']) { vaquero.rotation.y -= 0.06; isMoving = true; }
 
-    // Animación de caminata (balanceo)
-    if (moving) {
-        config.walkCycle += 0.2;
-        vaquero.children[2].rotation.z = Math.sin(config.walkCycle) * 0.05; // Torso rebota
+    // ANIMACIÓN DE CAMINATA REALISTA
+    if (isMoving && !config.isJumping) {
+        config.walkCycle += 0.18;
+        const swing = Math.sin(config.walkCycle) * 0.5;
+        
+        // Piernas cruzadas (estilo caminar humano)
+        piernaIzq.rotation.x = swing;
+        piernaDer.rotation.x = -swing;
+        
+        // Brazos opuestos a las piernas
+        brazoIzq.rotation.x = -swing * 0.8;
+        brazoDer.rotation.x = swing * 0.8;
+        
+        // Rebote leve en el cuerpo
+        vaquero.position.y = Math.abs(Math.cos(config.walkCycle)) * 0.1;
+    } else {
+        // Reset posición natural
+        piernaIzq.rotation.x = piernaDer.rotation.x = 0;
+        brazoIzq.rotation.x = brazoDer.rotation.x = 0;
     }
 
-    // Lógica de Salto (Espacio o Escape)
-    if ((keys['Space'] || keys['Escape']) && !config.isJumping) {
+    // SALTO
+    if (keys['Space'] && !config.isJumping) {
         config.vY = config.jumpForce;
         config.isJumping = true;
     }
@@ -178,12 +196,13 @@ function update() {
         }
     }
 
-    // CÁMARA DE SEGUIMIENTO (Tercera Persona)
-    // Hacemos que los controles de órbita siempre se centren en el vaquero
+    // CÁMARA DE SEGUIMIENTO RÍGIDO
+    // 1. Calculamos la diferencia de posición del vaquero
+    const delta = vaquero.position.clone().sub(prevPos);
+    // 2. Movemos la cámara la misma distancia que el vaquero para que no se aleje
+    camera.position.add(delta);
+    // 3. Forzamos a la cámara a mirar siempre al vaquero
     controls.target.copy(vaquero.position);
-    
-    // Para que la cámara no se quede estática, la desplazamos con el personaje
-    // pero permitiendo que el usuario rote con el ratón.
     controls.update();
 }
 
@@ -195,7 +214,6 @@ function animate() {
 
 init();
 animate();
-
 </script>
 </body>
 </html>
