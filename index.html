@@ -2,22 +2,22 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>3D Cowboy - Third Person Camera</title>
+    <title>3D Cowboy World - Fixed Horizon</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Arial', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         canvas { display: block; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px;
-            border: 2px solid #5d4037; pointer-events: none;
+            background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2); pointer-events: none;
         }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <strong>COWBOY 3D - VISTA TRASERA</strong><br>
-    <small>WASD para caminar | Flechas para girar cámara</small>
+    <strong>COWBOY 3D</strong><br>
+    <small>Caminar: <b>WASD</b> | Girar Cámara: <b>Flechas ← →</b></small>
 </div>
 
 <canvas id="game"></canvas>
@@ -29,15 +29,14 @@ const ctx = canvas.getContext('2d');
 let width, height;
 const keys = {};
 
-// Configuración del Jugador y Cámara
 const player = {
     x: 0, y: 0, z: 0,
     angle: 0,
     speed: 5,
-    rotSpeed: 0.05,
+    rotSpeed: 0.04,
     walkCycle: 0,
-    distanciaCamara: 250, // Distancia detrás del personaje
-    alturaCamara: 120     // Altura de la vista
+    camDist: 200, // Distancia detrás
+    camHeight: 80 // Altura de la cámara
 };
 
 function resize() {
@@ -51,48 +50,59 @@ window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
 window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
 /**
- * PROYECCIÓN 3D CON CÁMARA EN TERCERA PERSONA
+ * PROYECCIÓN 3D CORREGIDA
  */
 function project(x, y, z) {
-    // 1. Posicionamos la cámara DETRÁS del personaje usando su ángulo
-    let camX = player.x - Math.sin(player.angle) * player.distanciaCamara;
-    let camY = player.y - Math.cos(player.angle) * player.distanciaCamara;
-    let camZ = player.z + player.alturaCamara;
+    // Posición de la cámara (siempre detrás del jugador)
+    let cx = player.x - Math.sin(player.angle) * player.camDist;
+    let cy = player.y - Math.cos(player.angle) * player.camDist;
+    let cz = player.z + player.camHeight;
 
-    // 2. Transformación relativa a la cámara
-    let dx = x - camX;
-    let dy = y - camY;
+    // Relativo a la cámara
+    let dx = x - cx;
+    let dy = y - cy;
 
-    // 3. Rotación del mundo según hacia donde mira la cámara
+    // Rotación
     let rx = dx * Math.cos(-player.angle) - dy * Math.sin(-player.angle);
     let ry = dx * Math.sin(-player.angle) + dy * Math.cos(-player.angle);
     
-    let rz = z - camZ;
+    // Altura relativa (Z invertida para que el suelo esté ABAJO)
+    // En Canvas, Y aumenta hacia abajo, por eso sumamos a la mitad de la pantalla
+    let rz = cz - z; 
 
-    if (ry < 10) return null; // Clipping (no dibujar lo que está muy cerca o detrás)
+    if (ry < 10) return null;
 
-    const fov = 700; 
+    const fov = 600;
     const scale = fov / ry;
     
     return {
         x: width / 2 + rx * scale,
-        y: height / 2 + rz * scale,
+        y: height / 2 + rz * scale, // Aquí es donde se define la altura en pantalla
         scale: scale
     };
 }
 
-function drawMap() {
-    const tileSize = 100;
-    const range = 15;
-    const pX = Math.floor(player.x / tileSize);
-    const pY = Math.floor(player.y / tileSize);
+function drawSky() {
+    // Gradiente para un cielo más realista
+    let grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, "#2980b9"); // Azul fuerte arriba
+    grad.addColorStop(0.5, "#87CEEB"); // Azul claro en el horizonte
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+}
 
-    for (let i = pX - range; i <= pX + range; i++) {
-        for (let j = pY - range; j <= pY + range; j++) {
-            const p1 = project(i * tileSize, j * tileSize, 0);
-            const p2 = project((i + 1) * tileSize, j * tileSize, 0);
-            const p3 = project((i + 1) * tileSize, (j + 1) * tileSize, 0);
-            const p4 = project(i * tileSize, (j + 1) * tileSize, 0);
+function drawMap() {
+    const size = 120;
+    const range = 15;
+    const px = Math.floor(player.x / size);
+    const py = Math.floor(player.y / size);
+
+    for (let i = px - range; i <= px + range; i++) {
+        for (let j = py - range; j <= py + range; j++) {
+            const p1 = project(i * size, j * size, 0);
+            const p2 = project((i + 1) * size, j * size, 0);
+            const p3 = project((i + 1) * size, (j + 1) * size, 0);
+            const p4 = project(i * size, (j + 1) * size, 0);
 
             if (p1 && p2 && p3 && p4) {
                 ctx.beginPath();
@@ -102,11 +112,10 @@ function drawMap() {
                 ctx.lineTo(p4.x, p4.y);
                 ctx.closePath();
 
-                // Colores con separación clara
-                ctx.fillStyle = (i + j) % 2 === 0 ? "#4caf50" : "#388e3c";
+                ctx.fillStyle = (i + j) % 2 === 0 ? "#2ecc71" : "#27ae60";
                 ctx.fill();
                 
-                // Efecto de cuadrícula para realismo de profundidad
+                // Líneas sutiles de separación
                 ctx.strokeStyle = "rgba(0,0,0,0.05)";
                 ctx.stroke();
             }
@@ -115,31 +124,35 @@ function drawMap() {
 }
 
 function drawCowboy() {
-    const bob = Math.sin(player.walkCycle) * 5;
-    // Proyectamos al personaje en su posición real (siempre adelante de la cámara)
+    const bob = Math.sin(player.walkCycle) * 4;
     const pos = project(player.x, player.y, 0);
     
     if (!pos) return;
     const s = pos.scale;
 
-    // Sombra
+    // Sombra en el suelo
     ctx.fillStyle = "rgba(0,0,0,0.2)";
     ctx.beginPath();
     ctx.ellipse(pos.x, pos.y, 25 * s, 10 * s, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Cuerpo (Vaquero)
-    ctx.fillStyle = "#795548"; // Chaleco
-    ctx.fillRect(pos.x - 12 * s, pos.y - 35 * s + bob, 24 * s, 25 * s);
+    // Piernas
+    ctx.fillStyle = "#3e2723";
+    ctx.fillRect(pos.x - 10*s, pos.y - 15*s + bob, 8*s, 15*s);
+    ctx.fillRect(pos.x + 2*s, pos.y - 15*s - bob, 8*s, 15*s);
+
+    // Torso
+    ctx.fillStyle = "#795548";
+    ctx.fillRect(pos.x - 15*s, pos.y - 38*s + bob, 30*s, 25*s);
     
     // Cabeza
-    ctx.fillStyle = "#ffccbc";
-    ctx.fillRect(pos.x - 8 * s, pos.y - 48 * s + bob, 16 * s, 16 * s);
+    ctx.fillStyle = "#ffe0bd";
+    ctx.fillRect(pos.x - 8*s, pos.y - 52*s + bob, 16*s, 16*s);
 
-    // Sombrero
+    // Sombrero Vaquero
     ctx.fillStyle = "#3e2723";
-    ctx.fillRect(pos.x - 18 * s, pos.y - 50 * s + bob, 36 * s, 4 * s); // Ala
-    ctx.fillRect(pos.x - 10 * s, pos.y - 60 * s + bob, 20 * s, 12 * s); // Copa
+    ctx.fillRect(pos.x - 20*s, pos.y - 54*s + bob, 40*s, 4*s); // Ala
+    ctx.fillRect(pos.x - 12*s, pos.y - 65*s + bob, 24*s, 12*s); // Copa
 }
 
 function update() {
@@ -155,18 +168,15 @@ function update() {
     if (dx !== 0 || dy !== 0) {
         player.x += dx * player.speed;
         player.y += dy * player.speed;
-        player.walkCycle += 0.2;
+        player.walkCycle += 0.25;
     }
 }
 
 function loop() {
-    // Fondo de cielo
-    ctx.fillStyle = "#87CEEB";
-    ctx.fillRect(0, 0, width, height);
-
+    drawSky(); // Primero el cielo para que esté al fondo
     update();
-    drawMap();
-    drawCowboy();
+    drawMap(); // Luego el mapa (suelo)
+    drawCowboy(); // Finalmente el personaje sobre el suelo
 
     requestAnimationFrame(loop);
 }
