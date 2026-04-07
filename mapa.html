@@ -2,64 +2,87 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mapa de Despliegue | Cowboy Engine</title>
+    <title>Despliegue de Operador | Cowboy Engine</title>
     <style>
         body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Interfaz de Operador */
         #hud-operador {
-            position: absolute; top: 20px; left: 20px; padding: 20px;
-            background: rgba(10, 10, 10, 0.9); border-left: 5px solid #ff007f;
-            color: white; z-index: 100; border-radius: 0 15px 15px 0;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: absolute; top: 25px; left: 25px; padding: 20px;
+            background: rgba(10, 10, 10, 0.9); border-left: 4px solid #ff007f;
+            color: white; z-index: 100; border-radius: 0 10px 10px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
         }
-        .stat-bar { font-size: 10px; color: #ff007f; margin-top: 5px; letter-spacing: 1px; }
+        .status-tag { font-size: 10px; color: #ff007f; letter-spacing: 2px; margin-top: 5px; font-weight: bold; }
+        
+        .controles {
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: rgba(255,255,255,0.8);
+            padding: 10px 25px; border-radius: 30px; font-size: 11px;
+            border: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
     <div id="hud-operador">
-        <div id="nombre-hud" style="font-weight: bold; font-size: 20px; letter-spacing: 2px;">OPERADOR</div>
-        <div class="stat-bar">SISTEMA BIO-MÉTRICO: <span style="color: #00d4ff;">ACTIVO</span></div>
+        <div id="p-nombre" style="font-weight: bold; font-size: 22px; letter-spacing: 1px;">OPERADOR</div>
+        <div class="status-tag">SISTEMAS BIO-MÉTRICOS <span style="color: #00d4ff;">ONLINE</span></div>
     </div>
+
+    <div class="controles">WASD: CAMINAR | SHIFT: CORRER | MOUSE: GIRAR</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
         let scene, camera, renderer, vaquero, clock;
+        let torso, pIzq, pDer, bIzq, bDer; // Partes para animar
         let keys = {};
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB); // CIELO CELESTE
+            // NIEBLA REALISTA: Mezcla el suelo con el cielo en el horizonte
+            scene.fog = new THREE.Fog(0x87CEEB, 50, 800); 
+            
             clock = new THREE.Clock();
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
             
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // LUCES NATURALES
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const sun = new THREE.DirectionalLight(0xffffff, 1);
-            sun.position.set(100, 500, 100);
+            // LUCES BALANCEADAS (Menos intensidad para realismo)
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+            sun.position.set(100, 200, 100);
             scene.add(sun);
 
-            // EL SUELO VERDE
-            const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(10000, 10000),
-                new THREE.MeshStandardMaterial({ color: 0x228B22 }) // VERDE PASTO
-            );
+            // --- 1. SUELO VERDE REALISTA (Mate/Oliva) ---
+            const groundGeo = new THREE.PlaneGeometry(10000, 10000);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x3d4d21, // Verde pasto natural, no plástico
+                roughness: 0.9, 
+                metalness: 0.1 
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            // --- CARGAR PERSONAJE DESDE TU PERFIL.HTML ---
-            const savedConfig = localStorage.getItem('playerConfig'); // LA LLAVE QUE USA TU PERFIL
-            const config = savedConfig ? JSON.parse(savedConfig) : { color: "#ff007f", musculo: 1, altura: 1 };
-            
-            document.getElementById('nombre-hud').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
+            // Grilla sutil
+            const grid = new THREE.GridHelper(10000, 200, 0x2d3a1a, 0x2d3a1a);
+            grid.position.y = 0.05;
+            scene.add(grid);
 
-            buildPlayer(config);
-            cargarEstructuras(); // Carga lo de construccion.html
+            // --- 2. CARGAR CONFIGURACIÓN DE PERFIL.HTML ---
+            const config = JSON.parse(localStorage.getItem('playerConfig')) || { color: "#ff007f", musculo: 1, altura: 1 };
+            document.getElementById('p-nombre').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
+
+            buildVaquero(config);
+            cargarMundo();
 
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
@@ -67,13 +90,13 @@
             animate();
         }
 
-        function buildPlayer(config) {
+        function buildVaquero(config) {
             vaquero = new THREE.Group();
             const matColor = new THREE.MeshStandardMaterial({ color: config.color });
             const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
 
             // Torso
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
+            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
             torso.position.y = 1.6;
 
             // Cabeza
@@ -82,32 +105,30 @@
 
             // Extremidades
             const geoExt = new THREE.BoxGeometry(0.3, 0.9, 0.3);
-            const pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.25, 0.5, 0);
-            const pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.25, 0.5, 0);
-            const bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bIzq.position.set(-0.6, 1.7, 0);
-            const bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bDer.position.set(0.6, 1.7, 0);
+            pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.25, 0.5, 0);
+            pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.25, 0.5, 0);
+            
+            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bIzq.position.set(-0.6, 1.7, 0);
+            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), matPiel); bDer.position.set(0.6, 1.7, 0);
 
-            // Aplicar Musculatura de tu Perfil
+            // Aplicar Musculatura y Altura
             const m = parseFloat(config.musculo);
-            bIzq.scale.set(m, 1, m); bDer.scale.set(m, 1, m);
-            pIzq.scale.set(m, 1, m); pDer.scale.set(m, 1, m);
+            [pIzq, pDer, bIzq, bDer].forEach(e => e.scale.set(m, 1, m));
+            vaquero.scale.y = parseFloat(config.altura);
 
             vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
-            
-            // Aplicar Altura de tu Perfil
-            vaquero.scale.y = parseFloat(config.altura);
-            
             scene.add(vaquero);
         }
 
-        function cargarEstructuras() {
+        function cargarMundo() {
             const data = JSON.parse(localStorage.getItem('ciudad_db')) || [];
             data.forEach(item => {
+                const isCalle = item.type === 'calle';
                 const box = new THREE.Mesh(
-                    new THREE.BoxGeometry(item.type === 'calle' ? 40 : 10, item.type === 'calle' ? 1 : 20, 10),
-                    new THREE.MeshStandardMaterial({ color: item.type === 'calle' ? 0x333333 : 0x888888 })
+                    new THREE.BoxGeometry(isCalle ? 40 : 12, isCalle ? 0.6 : 25, isCalle ? 40 : 12),
+                    new THREE.MeshStandardMaterial({ color: isCalle ? 0x222222 : 0x777777, roughness: 0.8 })
                 );
-                box.position.set(item.pos.x, item.type === 'calle' ? 0.2 : 10, item.pos.z);
+                box.position.set(item.pos.x, isCalle ? 0.1 : 12.5, item.pos.z);
                 scene.add(box);
             });
         }
@@ -115,27 +136,48 @@
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            const time = Date.now() * 0.005; 
             
             if(vaquero) {
-                const moveSpeed = 40 * delta;
+                const isMoving = keys['KeyW'] || keys['KeyS'] || keys['KeyA'] || keys['KeyD'];
+                const speed = (keys['ShiftLeft'] ? 70 : 35) * delta;
                 const rotSpeed = 3 * delta;
 
-                if(keys['KeyW']) vaquero.translateZ(moveSpeed);
-                if(keys['KeyS']) vaquero.translateZ(-moveSpeed);
+                // MOVIMIENTO
+                if(keys['KeyW']) vaquero.translateZ(speed);
+                if(keys['KeyS']) vaquero.translateZ(-speed);
                 if(keys['KeyA']) vaquero.rotation.y += rotSpeed;
                 if(keys['KeyD']) vaquero.rotation.y -= rotSpeed;
 
-                // Cámara 3ra Persona
-                const offset = new THREE.Vector3(0, 10, -25);
+                // ANIMACIÓN DE CAMINATA / IDLE
+                const animSpeed = isMoving ? 2 : 0.5; // Más rápido al caminar
+                const animAmp = isMoving ? 0.5 : 0.1; // Más amplio al caminar
+
+                // Brazos
+                bIzq.rotation.x = Math.sin(time * animSpeed) * animAmp;
+                bDer.rotation.x = -Math.sin(time * animSpeed) * animAmp;
+                // Piernas
+                pIzq.rotation.x = -Math.sin(time * animSpeed) * animAmp;
+                pDer.rotation.x = Math.sin(time * animSpeed) * animAmp;
+                // Pecho (Respiración)
+                torso.scale.x = 1 + Math.sin(time * 0.5) * 0.02;
+
+                // CÁMARA SIGUE AL JUGADOR
+                const offset = new THREE.Vector3(0, 12, -30);
                 const worldOffset = offset.applyMatrix4(vaquero.matrixWorld);
                 camera.position.lerp(worldOffset, 0.1);
-                camera.lookAt(vaquero.position.x, vaquero.position.y + 2, vaquero.position.z);
+                camera.lookAt(vaquero.position.x, vaquero.position.y + 3, vaquero.position.z);
             }
 
             renderer.render(scene, camera);
         }
 
         window.onload = init;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
