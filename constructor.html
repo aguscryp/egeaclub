@@ -2,160 +2,250 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>City Builder | Admin Engine</title>
+    <title>City Builder Pro | Mouse Engine</title>
     <style>
-        :root { --pink: #ff007f; --bg: #0a0a0a; }
-        body { margin: 0; display: flex; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        :root { --pink: #ff007f; --cyan: #00d4ff; }
+        body { margin: 0; display: flex; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
         #sidebar { 
-            width: 380px; height: 100vh; background: rgba(15, 15, 15, 0.95); 
-            border-right: 2px solid var(--pink); padding: 25px; box-sizing: border-box; 
-            z-index: 10; overflow-y: auto;
+            width: 340px; height: 100vh; background: rgba(15, 15, 15, 0.98); 
+            border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box; 
+            z-index: 10; display: flex; flex-direction: column;
         }
         
-        h1 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 2px solid #222; padding-bottom: 10px; }
-        .section { background: #1a1a1a; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #333; }
-        label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        h1 { color: var(--pink); font-size: 16px; text-transform: uppercase; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .section { background: #1a1a1a; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; }
+        label { display: block; font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
 
-        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; margin-bottom: 15px; }
+        select { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; cursor: pointer; }
         
-        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .btn-ctrl { background: #252525; color: white; border: 1px solid #444; padding: 12px; cursor: pointer; border-radius: 5px; font-size: 11px; font-weight: bold; }
-        .btn-ctrl:hover { background: var(--pink); border-color: var(--pink); }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; }
+        .btn-del { background: #551111; color: #ff5555; border: 1px solid #ff5555; margin-top: 10px; padding: 8px; width: 100%; cursor: pointer; border-radius: 5px; font-size: 11px; }
+        .btn-del:hover { background: #ff0000; color: white; }
 
-        .btn-main { background: var(--pink); color: white; border: none; padding: 18px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; box-shadow: 0 0 15px rgba(255,0,127,0.3); }
+        #view { flex: 1; height: 100vh; position: relative; }
+        .mode-indicator { position: absolute; top: 20px; left: 20px; padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(0,0,0,0.8); border: 1px solid var(--pink); pointer-events: none; }
         
-        #view { flex: 1; height: 100vh; }
-        .info { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; border: 1px solid var(--pink); font-size: 12px; }
+        .hint-box { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; font-size: 12px; border-radius: 8px; color: #aaa; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h1>City Builder v1.0</h1>
+        <h1>City Architect</h1>
 
         <div class="section">
-            <label>1. Seleccionar Módulo</label>
-            <select id="moduleSelect" onchange="previewModule()">
-                <option value="calle">Calle (Asfalto)</option>
-                <option value="tienda">Tienda Neón</option>
-                <option value="banco">Banco Central</option>
-                <option value="concesionaria">Concesionaria SW4</option>
+            <label>Elegir Estructura</label>
+            <select id="objSelect">
+                <optgroup label="Vialidad">
+                    <option value="calle">Calle de Asfalto</option>
+                    <option value="vereda">Vereda</option>
+                </optgroup>
+                <optgroup label="Edificios">
+                    <option value="tienda">Tienda Neón</option>
+                    <option value="banco">Banco Central</option>
+                    <option value="hospital">Hospital</option>
+                    <option value="concesionaria">Concesionaria</option>
+                </optgroup>
+                <optgroup label="Props">
+                    <option value="poste">Poste de Luz</option>
+                    <option value="arbol">Pino</option>
+                </optgroup>
             </select>
-            <button class="btn-main" onclick="spawnNew()">INSTALAR EN EL MUNDO</button>
+            <button class="btn-main" onclick="enterBuildMode()">NUEVO OBJETO</button>
         </div>
 
         <div class="section">
-            <label>2. Control de Entidad Seleccionada</label>
-            <div id="entityName" style="font-size: 12px; color: var(--pink); margin-bottom: 10px;">Nada seleccionado</div>
-            <div class="btn-grid">
-                <button class="btn-ctrl" onclick="moveActive('x', -2)">IZQ</button>
-                <button class="btn-ctrl" onclick="moveActive('y', 1)">SUBIR</button>
-                <button class="btn-ctrl" onclick="moveActive('x', 2)">DER</button>
-                <button class="btn-ctrl" onclick="moveActive('z', 2)">ATRÁS</button>
-                <button class="btn-ctrl" onclick="moveActive('y', -1)">BAJAR</button>
-                <button class="btn-ctrl" onclick="moveActive('z', -2)">FRENTE</button>
-            </div>
-            <button class="btn-ctrl" style="width:100%; margin-top:10px;" onclick="rotateActive()">ROTAR 90°</button>
+            <label>Selección Actual</label>
+            <div id="status">Ninguno</div>
+            <button class="btn-del" onclick="deleteActive()">ELIMINAR SELECCIONADO</button>
         </div>
 
-        <button class="btn-main" style="background:#00d4ff;" onclick="saveWorld()">PUBLICAR CIUDAD</button>
+        <button class="btn-main" style="background: var(--cyan); margin-top: auto;" onclick="saveWorld()">PUBLICAR CIUDAD</button>
     </div>
 
-    <div id="view"></div>
-    <div class="info">
-        <b>CONTROLES DE CÁMARA:</b><br>
-        • Click Izquierdo: Orbitar<br>
-        • Click Derecho: Desplazar<br>
-        • Rueda: Zoom
+    <div id="view">
+        <div id="mode-text" class="mode-indicator">Modo: Vista</div>
+        <div class="hint-box">
+            <b>CLICK IZQ:</b> Colocar / Seleccionar<br>
+            <b>CLICK DER:</b> Cancelar Construcción / Orbitar<br>
+            <b>R:</b> Rotar objeto antes de ponerlo
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
-        let scene, camera, renderer, controls;
-        let worldEntities = []; // Aquí guardamos todos los edificios/calles
-        let activeEntity = null;
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let worldEntities = [];
+        let ghostObject = null; // El objeto que sigue al mouse
+        let isBuilding = false;
+        let selectedEntity = null;
+        let currentRotation = 0;
 
         function init() {
             const container = document.getElementById('view');
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x050505);
 
-            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 2000);
-            camera.position.set(50, 50, 50);
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 3000);
+            camera.position.set(60, 60, 60);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Iluminación
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
             const sun = new THREE.DirectionalLight(0xffffff, 1);
-            sun.position.set(100, 200, 100);
+            sun.position.set(100, 200, 50);
             scene.add(sun);
 
-            const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111);
+            // Suelo de referencia (Invisible para el raycast pero visible para el ojo)
+            const grid = new THREE.GridHelper(1000, 100, 0x222222, 0x111111);
             scene.add(grid);
 
+            // Plano invisible para detectar el mouse en el suelo
+            const planeGeo = new THREE.PlaneGeometry(2000, 2000);
+            planeGeo.rotateX(-Math.PI / 2);
+            const plane = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({visible: false}));
+            plane.name = "GROUND";
+            scene.add(plane);
+
             controls = new THREE.OrbitControls(camera, renderer.domElement);
+            
+            // Eventos
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mousedown', onMouseClick);
+            window.addEventListener('keydown', (e) => { if(e.key.toLowerCase() === 'r') rotateGhost(); });
+
             animate();
         }
 
-        // --- FÁBRICA DE MÓDULOS ---
-        function createModule(type) {
+        function createModel(type, isGhost = false) {
             const group = new THREE.Group();
             group.userData = { type: type };
+            const mat = isGhost ? 
+                new THREE.MeshStandardMaterial({color: 0x00ff00, transparent: true, opacity: 0.5}) :
+                new THREE.MeshStandardMaterial({color: 0xffffff});
 
             if(type === 'calle') {
-                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({color: 0x111111}));
-                mesh.rotation.x = -Math.PI/2;
-                // Línea amarilla
-                const line = new THREE.Mesh(new THREE.PlaneGeometry(1, 20), new THREE.MeshStandardMaterial({color: 0xffcc00}));
-                line.rotation.x = -Math.PI/2; line.position.y = 0.01;
-                group.add(mesh, line);
-            } 
-            else if(type === 'tienda') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 16), new THREE.MeshStandardMaterial({color: 0x1a1a1a}));
-                base.position.y = 3;
-                const sign = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 0.5), new THREE.MeshStandardMaterial({color: 0xff007f}));
-                sign.position.set(0, 7, 8);
-                group.add(base, sign);
-            }
-            else if(type === 'banco') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(25, 12, 25), new THREE.MeshStandardMaterial({color: 0x2c3e50}));
-                base.position.y = 6;
-                const columns = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 2), new THREE.MeshStandardMaterial({color: 0xbdc3c7}));
-                columns.position.set(0, 5, 13);
-                group.add(base, columns);
-            }
-            else if(type === 'concesionaria') {
-                const floor = new THREE.Mesh(new THREE.BoxGeometry(30, 0.5, 30), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
-                const glass = new THREE.Mesh(new THREE.BoxGeometry(28, 8, 28), new THREE.MeshStandardMaterial({color: 0x00aaff, transparent: true, opacity: 0.2}));
-                glass.position.y = 4;
-                group.add(floor, glass);
+                const geo = new THREE.BoxGeometry(20, 0.1, 20);
+                const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color: 0x111111}));
+                group.add(m);
+            } else if(type === 'tienda') {
+                const geo = new THREE.BoxGeometry(15, 8, 15);
+                const m = new THREE.Mesh(geo, mat);
+                m.position.y = 4;
+                group.add(m);
+            } else if(type === 'poste') {
+                const geo = new THREE.CylinderGeometry(0.2, 0.2, 10);
+                const m = new THREE.Mesh(geo, mat); m.position.y = 5;
+                group.add(m);
+            } else if(type === 'banco') {
+                const geo = new THREE.BoxGeometry(25, 15, 25);
+                const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color: 0x2c3e50}));
+                m.position.y = 7.5;
+                group.add(m);
+            } else {
+                // Default box para nuevos tipos
+                const m = new THREE.Mesh(new THREE.BoxGeometry(10,10,10), mat);
+                m.position.y = 5; group.add(m);
             }
 
             return group;
         }
 
-        function spawnNew() {
-            const type = document.getElementById('moduleSelect').value;
-            const newEntity = createModule(type);
-            scene.add(newEntity);
-            worldEntities.push(newEntity);
-            activeEntity = newEntity;
-            document.getElementById('entityName').innerText = "Editando: " + type.toUpperCase();
+        function enterBuildMode() {
+            if(ghostObject) scene.remove(ghostObject);
+            const type = document.getElementById('objSelect').value;
+            ghostObject = createModel(type, true);
+            scene.add(ghostObject);
+            isBuilding = true;
+            document.getElementById('mode-text').innerText = "Modo: Construyendo";
         }
 
-        window.moveActive = function(axis, delta) {
-            if(!activeEntity) return;
-            activeEntity.position[axis] += delta;
+        function onMouseMove(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            if(isBuilding && ghostObject) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(scene.children, true);
+                const ground = intersects.find(i => i.object.name === "GROUND");
+                if(ground) {
+                    ghostObject.position.copy(ground.point);
+                    // Snap a la grilla (opcional, para que queden alineados)
+                    ghostObject.position.x = Math.round(ghostObject.position.x / 2) * 2;
+                    ghostObject.position.z = Math.round(ghostObject.position.z / 2) * 2;
+                }
+            }
         }
 
-        window.rotateActive = function() {
-            if(!activeEntity) return;
-            activeEntity.rotation.y += Math.PI / 2;
+        function onMouseClick(event) {
+            if(event.button === 2) { // Click derecho: Cancelar
+                cancelBuild();
+                return;
+            }
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if(isBuilding) {
+                // Colocar objeto
+                const type = document.getElementById('objSelect').value;
+                const newObj = createModel(type, false);
+                newObj.position.copy(ghostObject.position);
+                newObj.rotation.copy(ghostObject.rotation);
+                scene.add(newObj);
+                worldEntities.push(newObj);
+            } else {
+                // Seleccionar objeto existente
+                const clicked = intersects.find(i => i.object.name !== "GROUND" && i.object.type !== "GridHelper");
+                if(clicked) {
+                    if(selectedEntity) setHighlight(selectedEntity, false);
+                    selectedEntity = clicked.object.parent; // El Group
+                    setHighlight(selectedEntity, true);
+                    document.getElementById('status').innerText = selectedEntity.userData.type.toUpperCase();
+                } else {
+                    if(selectedEntity) setHighlight(selectedEntity, false);
+                    selectedEntity = null;
+                    document.getElementById('status').innerText = "Ninguno";
+                }
+            }
+        }
+
+        function setHighlight(entity, active) {
+            entity.traverse(child => {
+                if(child.isMesh) child.material.emissive.setHex(active ? 0xff007f : 0x000000);
+            });
+        }
+
+        function rotateGhost() {
+            if(ghostObject) ghostObject.rotation.y += Math.PI / 2;
+        }
+
+        function cancelBuild() {
+            if(ghostObject) {
+                scene.remove(ghostObject);
+                ghostObject = null;
+                isBuilding = false;
+                document.getElementById('mode-text').innerText = "Modo: Vista";
+            }
+        }
+
+        function deleteActive() {
+            if(selectedEntity) {
+                scene.remove(selectedEntity);
+                worldEntities = worldEntities.filter(e => e !== selectedEntity);
+                selectedEntity = null;
+                document.getElementById('status').innerText = "Eliminado";
+            }
         }
 
         function saveWorld() {
@@ -165,12 +255,12 @@
                 rot: ent.rotation.y
             }));
             localStorage.setItem('ciudad_data', JSON.stringify(data));
-            alert("¡Ciudad Publicada! Se han guardado " + data.length + " entidades.");
+            alert("Ciudad guardada con " + data.length + " objetos.");
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
+            controls.enabled = !isBuilding; // Bloquear rotación de cámara mientras construyo
             renderer.render(scene, camera);
         }
 
