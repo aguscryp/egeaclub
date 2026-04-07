@@ -2,16 +2,16 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Persistente | Agustín Pro</title>
+    <title>Mundo Cowboy | Agustín Pro</title>
     <style>
         body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
         #hud {
-            position: absolute; top: 20px; left: 20px; padding: 15px;
-            background: rgba(0,0,0,0.8); border-left: 5px solid #ff007f;
+            position: absolute; top: 20px; left: 20px; padding: 20px;
+            background: rgba(10, 10, 10, 0.9); border-left: 5px solid #ff007f;
             color: white; z-index: 100; border-radius: 0 10px 10px 0;
         }
         .instrucciones {
-            position: absolute; bottom: 20px; right: 20px;
+            position: absolute; bottom: 20px; left: 20px;
             background: rgba(0,0,0,0.6); color: #fff; padding: 10px;
             font-size: 11px; border-radius: 5px; pointer-events: none;
         }
@@ -20,27 +20,28 @@
 <body>
 
     <div id="hud">
-        <div id="p-nombre" style="font-weight: bold; font-size: 18px;">OPERADOR</div>
-        <div style="font-size: 10px; color: #00d4ff;">EQUIPAMIENTO: PALA ACTIVA</div>
+        <div id="p-nombre" style="font-weight: bold; font-size: 20px; letter-spacing: 1px;">OPERADOR</div>
+        <div id="p-stats" style="font-size: 10px; color: #00d4ff; margin-top:5px;">SISTEMA ACTIVO</div>
     </div>
 
     <div class="instrucciones">
-        WASD: Mover | ESPACIO: Salto | CLICK: Cavar Pozo | RUEDITA: Zoom
+        WASD: Caminar | ESPACIO: Saltar | CLICK: Cavar Pozo | RUEDITA: Zoom
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
         let scene, camera, renderer, vaquero, clock;
+        let pIzq, pDer, bIzq, bDer, torso; // Partes del cuerpo para animar
         let keys = {};
         let velocityY = 0; 
         let isGrounded = true;
-        let zoomDistance = 35; // Distancia inicial para el zoom
+        let zoomDistance = 35;
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 50, 1000);
+            scene.fog = new THREE.Fog(0x87CEEB, 100, 1000);
             clock = new THREE.Clock();
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
@@ -49,23 +50,24 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
             const sun = new THREE.DirectionalLight(0xffffff, 1);
-            sun.position.set(100, 300, 100);
+            sun.position.set(100, 500, 100);
             scene.add(sun);
 
-            // 1. EL SUELO (TIERRA/PASTO REALISTA)
-            // Usamos un Canvas dinámico para crear una textura de "ruido" y que no sea un color liso
+            // 1. EL SUELO (TIERRA REALISTA CON TEXTURA)
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
             const ctx = canvas.getContext('2d');
-            for(let i=0; i<10000; i++) {
-                ctx.fillStyle = `rgb(61, ${70 + Math.random()*20}, 33)`;
-                ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+            ctx.fillStyle = "#3d4d21"; // Base verde oliva
+            ctx.fillRect(0,0,512,512);
+            for(let i=0; i<20000; i++) {
+                ctx.fillStyle = `rgba(40, 30, 10, ${Math.random() * 0.3})`; // Manchas de tierra
+                ctx.fillRect(Math.random()*512, Math.random()*512, 3, 3);
             }
             const texture = new THREE.CanvasTexture(canvas);
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(100, 100);
+            texture.repeat.set(150, 150);
 
             const ground = new THREE.Mesh(
                 new THREE.PlaneGeometry(10000, 10000),
@@ -74,26 +76,32 @@
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            // 2. PERSONAJE (Cargado de perfil.html)
-            const config = JSON.parse(localStorage.getItem('playerConfig')) || { color: "#ff007f", musculo: 1, altura: 1 };
+            // 2. RECONSTRUCCIÓN DEL PERSONAJE DESDE PERFIL.HTML
+            const saved = localStorage.getItem('playerConfig');
+            const config = saved ? JSON.parse(saved) : { color: "#ff007f", musculo: 1, altura: 1 };
+            
             document.getElementById('p-nombre').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
+            
             buildVaquero(config);
 
             // 3. ELEMENTOR (Carga de elementor.html)
-            sincronizarElementor();
+            const elData = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+            elData.forEach(item => {
+                const geo = item.type === 'calle' ? new THREE.BoxGeometry(50, 0.2, 50) : new THREE.BoxGeometry(10, 20, 10);
+                const mat = new THREE.MeshStandardMaterial({ color: item.type === 'calle' ? 0x222222 : 0x777777 });
+                const obj = new THREE.Mesh(geo, mat);
+                obj.position.set(item.pos.x, item.type === 'calle' ? 0.1 : 10, item.pos.z);
+                scene.add(obj);
+            });
 
             // EVENTOS
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
-            
-            // ZOOM CON RUEDITA
             window.addEventListener('wheel', e => {
                 zoomDistance += e.deltaY * 0.05;
-                zoomDistance = Math.max(15, Math.min(100, zoomDistance)); // Límites de zoom
+                zoomDistance = Math.max(15, Math.min(120, zoomDistance));
             });
-
-            // PALA (Click para cavar)
-            window.addEventListener('click', () => cavarPozo());
+            window.addEventListener('click', cavarPozo);
 
             animate();
         }
@@ -103,33 +111,33 @@
             const matColor = new THREE.MeshStandardMaterial({ color: config.color });
             const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
 
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
+            // Torso
+            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
             torso.position.y = 1.6;
+
+            // Cabeza
             const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
             cabeza.position.y = 2.5;
 
-            vaquero.add(torso, cabeza);
+            // Extremidades (Con musculatura aplicada)
+            const m = parseFloat(config.musculo);
+            const geoExt = new THREE.BoxGeometry(0.3 * m, 0.9, 0.3 * m);
+            
+            pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.25, 0.5, 0);
+            pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.25, 0.5, 0);
+            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1, 0.25 * m), matPiel); bIzq.position.set(-0.6, 1.7, 0);
+            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1, 0.25 * m), matPiel); bDer.position.set(0.6, 1.7, 0);
+
+            vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
             vaquero.scale.y = parseFloat(config.altura);
             scene.add(vaquero);
         }
 
-        function sincronizarElementor() {
-            // Lee los elementos agregados en elementor.html
-            const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data.forEach(item => {
-                const geo = item.type === 'calle' ? new THREE.BoxGeometry(50, 0.2, 50) : new THREE.BoxGeometry(10, 20, 10);
-                const mat = new THREE.MeshStandardMaterial({ color: item.type === 'calle' ? 0x222222 : 0x777777 });
-                const obj = new THREE.Mesh(geo, mat);
-                obj.position.set(item.pos.x, item.type === 'calle' ? 0.1 : 10, item.pos.z);
-                scene.add(obj);
-            });
-        }
-
         function cavarPozo() {
-            // Crea un "pozo" (un círculo oscuro en el suelo) en la posición del jugador
-            const pozoGeo = new THREE.CircleGeometry(2, 32);
-            const pozoMat = new THREE.MeshBasicMaterial({ color: 0x1a0f00 }); // Color tierra profunda
-            const pozo = new THREE.Mesh(pozoGeo, pozoMat);
+            const pozo = new THREE.Mesh(
+                new THREE.CircleGeometry(2, 32),
+                new THREE.MeshBasicMaterial({ color: 0x1a0f00 })
+            );
             pozo.rotation.x = -Math.PI / 2;
             pozo.position.set(vaquero.position.x, 0.15, vaquero.position.z);
             scene.add(pozo);
@@ -138,39 +146,39 @@
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            const time = Date.now() * 0.005;
             
             if(vaquero) {
+                const isMoving = keys['KeyW'] || keys['KeyS'];
                 const speed = (keys['ShiftLeft'] ? 60 : 30) * delta;
                 
-                // MOVIMIENTO Y GIRO
                 if(keys['KeyW']) vaquero.translateZ(speed);
                 if(keys['KeyS']) vaquero.translateZ(-speed);
                 if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
                 if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
 
-                // SISTEMA DE SALTO
-                if(keys['Space'] && isGrounded) {
-                    velocityY = 1.2; 
-                    isGrounded = false;
-                }
+                // Animación de pasos (Brazos y Piernas)
+                const animSpeed = isMoving ? 2 : 0.5;
+                const animAmp = isMoving ? 0.6 : 0.1;
+                bIzq.rotation.x = Math.sin(time * animSpeed) * animAmp;
+                bDer.rotation.x = -Math.sin(time * animSpeed) * animAmp;
+                pIzq.rotation.x = -Math.sin(time * animSpeed) * animAmp;
+                pDer.rotation.x = Math.sin(time * animSpeed) * animAmp;
 
+                // Salto
+                if(keys['Space'] && isGrounded) { velocityY = 1.2; isGrounded = false; }
                 if(!isGrounded) {
-                    velocityY -= 0.05; // Gravedad
+                    velocityY -= 0.06;
                     vaquero.position.y += velocityY;
-                    if(vaquero.position.y <= 0) {
-                        vaquero.position.y = 0;
-                        isGrounded = true;
-                        velocityY = 0;
-                    }
+                    if(vaquero.position.y <= 0) { vaquero.position.y = 0; isGrounded = true; }
                 }
 
-                // CÁMARA CON ZOOM Y SEGUIMIENTO
-                const offset = new THREE.Vector3(0, zoomDistance * 0.4, -zoomDistance);
-                const worldOffset = offset.applyMatrix4(vaquero.matrixWorld);
-                camera.position.lerp(worldOffset, 0.1);
-                camera.lookAt(vaquero.position.x, vaquero.position.y + 5, vaquero.position.z);
+                // Cámara con Zoom
+                const camOffset = new THREE.Vector3(0, zoomDistance * 0.5, -zoomDistance);
+                const actualPos = camOffset.applyMatrix4(vaquero.matrixWorld);
+                camera.position.lerp(actualPos, 0.1);
+                camera.lookAt(vaquero.position.x, vaquero.position.y + 3, vaquero.position.z);
             }
-
             renderer.render(scene, camera);
         }
 
