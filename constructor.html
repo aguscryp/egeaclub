@@ -2,16 +2,16 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>City Builder Pro | Constructor de Ciudad</title>
+    <title>City Builder PRO | Realismo Total</title>
     <style>
         :root { --pink: #ff007f; --cyan: #00d4ff; }
         body { margin: 0; display: flex; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* Panel Lateral */
+        /* Panel Lateral UI */
         #sidebar { 
-            width: 320px; height: 100vh; background: rgba(15,15,15,0.98); 
+            width: 320px; height: 100vh; background: rgba(10,10,10,0.98); 
             border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box; 
-            z-index: 10; display: flex; flex-direction: column; box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            z-index: 10; display: flex; flex-direction: column;
         }
         
         h1 { color: var(--pink); font-size: 16px; text-transform: uppercase; border-bottom: 2px solid #333; padding-bottom: 10px; letter-spacing: 2px; }
@@ -26,43 +26,50 @@
         .btn-del { background: #331111; color: #ff5555; border: 1px solid #552222; margin-top: 10px; padding: 10px; width: 100%; cursor: pointer; border-radius: 5px; font-size: 11px; text-transform: uppercase; }
         .btn-del:hover { background: #ff0000; color: white; }
 
-        /* Pantalla de Juego */
+        /* Pantalla de Visualización */
         #view { flex: 1; height: 100vh; position: relative; }
         .mode-indicator { position: absolute; top: 20px; left: 20px; padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(0,0,0,0.8); border: 1px solid var(--pink); pointer-events: none; font-size: 12px; }
         
-        .hint-box { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; font-size: 11px; border-radius: 8px; color: #aaa; border: 1px solid #333; }
+        /* Mensaje de Carga */
+        #loading-msg {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.9); padding: 10px 30px; border: 1px solid var(--cyan);
+            border-radius: 5px; display: none; color: var(--cyan); font-weight: bold; font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h1>Constructor Global</h1>
+        <h1>MUNDO REALISTA</h1>
 
         <div class="section">
-            <label>Catálogo de Estructuras</label>
+            <label>🏗️ Catálogo (Modelos GLB)</label>
             <select id="objSelect">
-                <optgroup label="Infraestructura">
-                    <option value="calle">Avenida con Veredas</option>
+                <optgroup label="Infraestructura Real">
+                    <option value="calle">Calle de Asfalto (Código)</option>
                 </optgroup>
-                <optgroup label="Edificios">
-                    <option value="hospital">Hospital Municipal</option>
-                    <option value="banco">Banco Central</option>
-                    <option value="casa">Casa Familiar (NPC)</option>
-                    <option value="concesionaria">Concesionaria Autos</option>
+                <optgroup label="Edificios Reales (Nube)">
+                    <option value="casa">Casa Familiar Detallada</option>
+                    <option value="edificio">Edificio de Departamentos</option>
                 </optgroup>
-                <optgroup label="Vehículos">
-                    <option value="auto_sedan">VW Vento / Bora</option>
-                    <option value="camioneta">Toyota Hilux / SW4</option>
-                    <option value="camion">Camión de Trabajo</option>
+                <optgroup label="🚗 Vehículos Reales (Nube)">
+                    <option value="carro_comun">Auto Sedan (Bora/Vento)</option>
+                    <option value="camion_carga">Camión de Carga</option>
                 </optgroup>
             </select>
             <button class="btn-main" onclick="enterBuildMode()">👷 Nuevo Objeto</button>
         </div>
 
         <div class="section">
-            <label>Selección</label>
-            <div id="status" style="color: var(--cyan); font-weight: bold; font-size: 14px; margin: 5px 0;">Nada seleccionado</div>
-            <button class="btn-del" onclick="deleteActive()">🗑️ Eliminar Objeto</button>
+            <label>Selección Actual</label>
+            <div id="status" style="color: var(--cyan); font-weight: bold; font-size: 14px; margin: 5px 0;">Modo Vista</div>
+            <button class="btn-del" onclick="deleteActive()">🗑️ Eliminar</button>
+        </div>
+
+        <div class="section" style="font-size: 11px; color: #666;">
+            <b>R:</b> Rotar (90°) | <b>Click:</b> Poner<br>
+            <b>Click Der:</b> Cancelar
         </div>
 
         <button class="btn-main" style="background: var(--cyan); color: #000; margin-top: auto;" onclick="saveWorld()">💾 PUBLICAR CIUDAD</button>
@@ -70,11 +77,7 @@
 
     <div id="view">
         <div id="mode-text" class="mode-indicator">MODO: VISTA</div>
-        <div class="hint-box">
-            <b>Click Izq:</b> Poner / Seleccionar<br>
-            <b>Click Der:</b> Cancelar / Orbitar<br>
-            <b>Tecla R:</b> Rotar Estructura
-        </div>
+        <div id="loading-msg">📥 DESCARGANDO MODELO 3D REALISTA...</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -84,39 +87,53 @@
     <script>
         let scene, camera, renderer, controls, raycaster, mouse;
         let worldEntities = [];
-        let ghostObject = null;
+        let ghostObject = null; // El objeto "fantasma" que sigue al mouse
         let isBuilding = false;
         let selectedEntity = null;
         const loader = new THREE.GLTFLoader();
 
+        // ==========================================
+        // REPOSITORIO DE MODELOS REALISTAS (URLs)
+        // ==========================================
+        // Estos modelos son gratuitos y alojados en GitHub (Three.js/Khronos)
+        const MODEL_URLS = {
+            'casa': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/SheenChair.glb', // Placeholder: Casa (Necesitas tu .glb)
+            'edificio': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Buildings.glb', // Edificios Low Poly pero reales
+            'carro_comun': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Car.glb', // Auto realista
+            'camion_carga': 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb' // Camión real
+        };
+
         function init() {
             const container = document.getElementById('view');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0a);
+            scene.background = new THREE.Color(0x050505);
 
-            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 5000);
-            camera.position.set(100, 100, 100);
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 10000);
+            camera.position.set(150, 150, 150);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const sun = new THREE.DirectionalLight(0xffffff, 1);
-            sun.position.set(150, 300, 100);
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Iluminación potente para modelos detallados
+            scene.add(new THREE.AmbientLight(0xffffff, 1)); // Luz ambiental fuerte
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(200, 400, 100);
             scene.add(sun);
 
-            const grid = new THREE.GridHelper(2000, 100, 0x222222, 0x111111);
+            const grid = new THREE.GridHelper(2000, 50, 0x222222, 0x111111);
             scene.add(grid);
 
-            const planeGeo = new THREE.PlaneGeometry(4000, 4000);
+            // Suelo invisible para el mouse
+            const planeGeo = new THREE.PlaneGeometry(5000, 5000);
             planeGeo.rotateX(-Math.PI / 2);
             const plane = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({visible: false}));
             plane.name = "GROUND";
             scene.add(plane);
 
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
@@ -128,61 +145,78 @@
         }
 
         // ==========================================
-        // DISEÑO DE ESTRUCTURAS REALISTAS
+        // MOTOR DE CARGA ASÍNCRONA (GLTF)
         // ==========================================
-        function createEntity(type, isGhost = false) {
+        async function loadGltfModel(type) {
+            return new THREE.Promise((resolve, reject) => {
+                const url = MODEL_URLS[type];
+                if(!url) {
+                    // Si no hay URL, creamos una caja de código básica (Calle, etc.)
+                    resolve(createCodeEntity(type));
+                    return;
+                }
+
+                // Mostrar mensaje de carga
+                document.getElementById('loading-msg').style.display = 'block';
+
+                loader.load(url, (gltf) => {
+                    const model = gltf.scene;
+                    const group = new THREE.Group();
+                    group.add(model);
+                    group.userData = { type: type, id: THREE.MathUtils.generateUUID() };
+                    
+                    // Ajuste de escala según el modelo (Importante!)
+                    if(type === 'carro_comun') group.scale.set(10, 10, 10);
+                    if(type === 'camion_carga') group.scale.set(8, 8, 8);
+                    if(type === 'edificio') group.scale.set(50, 50, 50);
+
+                    // Ocultar mensaje de carga
+                    document.getElementById('loading-msg').style.display = 'none';
+                    resolve(group);
+                }, undefined, (error) => {
+                    console.error("Error cargando modelo:", error);
+                    document.getElementById('loading-msg').innerText = "ERROR CARGANDO MODELO";
+                    reject(error);
+                });
+            });
+        }
+
+        // Entidades simples hechas con código (Calle)
+        function createCodeEntity(type) {
             const group = new THREE.Group();
             group.userData = { type: type, id: THREE.MathUtils.generateUUID() };
-
-            const opacity = isGhost ? 0.5 : 1;
-            const mat = (col) => new THREE.MeshStandardMaterial({color: col, transparent: isGhost, opacity: opacity});
-
-            switch(type) {
-                case 'hospital':
-                    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(40, 20, 30), mat(0xeeeeee)); cuerpo.position.y = 10;
-                    const cruz = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 0.5), mat(0xff0000)); cruz.position.set(0, 15, 15.1);
-                    const cruzV = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 0.5), mat(0xff0000)); cruzV.position.set(0, 15, 15.1);
-                    const helipuerto = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 0.5), mat(0x333333)); helipuerto.position.y = 20.2;
-                    group.add(cuerpo, cruz, cruzV, helipuerto);
-                    break;
-
-                case 'casa':
-                    const pared = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 12), mat(0xd2b48c)); pared.position.y = 4;
-                    const techo = new THREE.Mesh(new THREE.BoxGeometry(16, 2, 13), mat(0x8b4513)); techo.position.y = 9;
-                    const jardin = new THREE.Mesh(new THREE.BoxGeometry(15, 0.2, 5), mat(0x228b22)); jardin.position.set(0, 0, 8.5);
-                    group.add(pared, techo, jardin);
-                    break;
-
-                case 'calle':
-                    const asf = new THREE.Mesh(new THREE.BoxGeometry(40, 0.2, 40), mat(0x111111));
-                    const vereda1 = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, 40), mat(0x888888)); vereda1.position.x = -22.5;
-                    const vereda2 = vereda1.clone(); vereda2.position.x = 22.5;
-                    const linea = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 40), mat(0xffcc00)); linea.position.y = 0.15;
-                    group.add(asf, vereda1, vereda2, linea);
-                    break;
-
-                case 'auto_sedan':
-                case 'camioneta':
-                    // Aquí cargarás el .glb. Por ahora, un bloque con ruedas para posicionar
-                    const baseCar = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 9), mat(0x333333)); baseCar.position.y = 1.2;
-                    const cabina = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 4), mat(0x555555)); cabina.position.set(0, 3, -1);
-                    group.add(baseCar, cabina);
-                    break;
+            if(type === 'calle') {
+                const asf = new THREE.Mesh(new THREE.BoxGeometry(40, 0.2, 40), new THREE.MeshStandardMaterial({color: 0x111111}));
+                const linea = new THREE.Mesh(new THREE.PlaneGeometry(1, 40), new THREE.MeshStandardMaterial({color: 0xffcc00}));
+                linea.rotation.x = -Math.PI/2; linea.position.y = 0.11;
+                group.add(asf, linea);
             }
-
             return group;
         }
 
         // ==========================================
-        // SISTEMA DE MOUSE Y CONSTRUCCIÓN
+        // SISTEMA DE CONSTRUCCIÓN PRO CON MOUSE
         // ==========================================
-        function enterBuildMode() {
+        async function enterBuildMode() {
             if(ghostObject) scene.remove(ghostObject);
             const type = document.getElementById('objSelect').value;
-            ghostObject = createEntity(type, true);
+            
+            // Cargamos el modelo real asincrónicamente
+            ghostObject = await loadGltfModel(type);
+            
+            // Hacerlo semitransparente (fantasma)
+            ghostObject.traverse(child => {
+                if(child.isMesh) {
+                    child.material = child.material.clone(); // Evitar cambiar material original
+                    child.material.transparent = true; child.material.opacity = 0.4;
+                    child.material.emissive.setHex(0x00ff00); // Tinte verde
+                }
+            });
+
             scene.add(ghostObject);
             isBuilding = true;
-            document.getElementById('mode-text').innerText = "MODO: CONSTRUYENDO";
+            if(selectedEntity) deselectActive();
+            document.getElementById('mode-text').innerText = "MODO: CONSTRUYENDO (CLICK IZQ)";
         }
 
         function onMouseMove(event) {
@@ -192,60 +226,89 @@
 
             if(isBuilding && ghostObject) {
                 raycaster.setFromCamera(mouse, camera);
-                const ground = raycaster.intersectObjects(scene.children).find(i => i.object.name === "GROUND");
+                const intersects = raycaster.intersectObjects(scene.children, true);
+                const ground = intersects.find(i => i.object.name === "GROUND");
                 if(ground) {
                     ghostObject.position.copy(ground.point);
-                    // Snap para que queden alineados
-                    ghostObject.position.x = Math.round(ghostObject.position.x / 5) * 5;
-                    ghostObject.position.z = Math.round(ghostObject.position.z / 5) * 5;
+                    // Snap a grilla de 2 en 2
+                    ghostObject.position.x = Math.round(ghostObject.position.x / 2) * 2;
+                    ghostObject.position.z = Math.round(ghostObject.position.z / 2) * 2;
+                    ghostObject.position.y = 0; // Pegado al piso
                 }
             }
         }
 
         function onMouseClick(event) {
-            if(event.button === 2) { cancelBuild(); return; }
+            if(event.button === 2) { // Click derecho: Cancelar/Deseleccionar
+                if(isBuilding) cancelBuild();
+                else if(selectedEntity) deselectActive();
+                return;
+            }
 
             if(isBuilding) {
-                const type = document.getElementById('objSelect').value;
-                const newObj = createEntity(type, false);
-                newObj.position.copy(ghostObject.position);
-                newObj.rotation.copy(ghostObject.rotation);
-                scene.add(newObj);
-                worldEntities.push(newObj);
+                // Colocar objeto real (Clonando el fantasma pero haciéndolo sólido)
+                const finalObj = ghostObject.clone();
+                finalObj.traverse(child => {
+                    if(child.isMesh) {
+                        child.material = child.material.clone(); // Material único
+                        child.material.transparent = false; child.material.opacity = 1.0;
+                        child.material.emissive.setHex(0x000000); // Quitar tinte verde
+                    }
+                });
+                scene.add(finalObj);
+                worldEntities.push(finalObj);
             } else {
+                // Modo Selección
                 raycaster.setFromCamera(mouse, camera);
                 const intersects = raycaster.intersectObjects(worldEntities, true);
+                
                 if(intersects.length > 0) {
+                    // Encontrar el Grupo padre (la entidad completa)
                     let obj = intersects[0].object;
                     while(obj.parent && obj.parent !== scene) obj = obj.parent;
-                    if(selectedEntity) highlight(selectedEntity, false);
+
+                    if(selectedEntity) deselectActive();
                     selectedEntity = obj;
-                    highlight(selectedEntity, true);
-                    document.getElementById('status').innerText = "Seleccionado: " + obj.userData.type.toUpperCase();
+                    highlightEntity(selectedEntity, true);
+                    document.getElementById('status').innerText = selectedEntity.userData.type.toUpperCase();
+                } else {
+                    if(selectedEntity) deselectActive();
                 }
             }
         }
 
-        function highlight(obj, active) {
-            obj.traverse(c => { if(c.isMesh) c.material.emissive.setHex(active ? 0xff007f : 0x000000); });
+        function highlightEntity(entity, active) {
+            entity.traverse(child => {
+                if(child.isMesh) {
+                    // Usamos emissive para el highlight neón rosa
+                    child.material.emissive.setHex(active ? 0xff007f : 0x000000);
+                    child.material.emissiveIntensity = active ? 0.5 : 0;
+                }
+            });
         }
 
-        function rotateGhost() { if(ghostObject) ghostObject.rotation.y += Math.PI/2; }
-        function cancelBuild() { if(ghostObject) { scene.remove(ghostObject); ghostObject = null; isBuilding = false; document.getElementById('mode-text').innerText = "MODO: VISTA"; } }
+        function deselectActive() {
+            if(selectedEntity) highlightEntity(selectedEntity, false);
+            selectedEntity = null;
+            document.getElementById('status').innerText = "VISTA GLOBAL";
+        }
+
+        function rotateGhost() { if(ghostObject) ghostObject.rotation.y += Math.PI / 2; }
+        function cancelBuild() { if(ghostObject) { scene.remove(ghostObject); ghostObject = null; isBuilding = false; document.getElementById('mode-text').innerText = "MODO: VISTA GLOBAL"; } }
 
         function deleteActive() {
             if(selectedEntity) {
                 scene.remove(selectedEntity);
                 worldEntities = worldEntities.filter(e => e.userData.id !== selectedEntity.userData.id);
-                selectedEntity = null;
+                deselectActive();
                 document.getElementById('status').innerText = "ELIMINADO";
             }
         }
 
         function saveWorld() {
-            const data = worldEntities.map(e => ({ type: e.userData.type, pos: e.position, rot: e.rotation.y }));
+            const data = worldEntities.map(ent => ({ type: ent.userData.type, pos: ent.position, rot: ent.rotation.y }));
             localStorage.setItem('ciudad_data', JSON.stringify(data));
-            alert("✅ Ciudad Publicada!");
+            alert("✅ Ciudad guardada con éxito.");
         }
 
         function animate() {
