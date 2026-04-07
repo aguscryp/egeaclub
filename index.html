@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Bloques 2D - Base</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+
+<script>
+// --- CONFIGURACIÓN DEL JUEGO ---
+const config = {
+    type: Phaser.AUTO, // Elige WebGL o Canvas automáticamente
+    width: 800,        // Ancho de la pantalla del juego
+    height: 600,       // Alto de la pantalla del juego
+    physics: {         // Activamos el motor de físicas
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 0 }, // Sin gravedad para movimiento libre 2D
+            debug: false       // Cambia a true para ver rectángulos de colisión
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+// Iniciamos el juego con la configuración
+const game = new Phaser.Game(config);
+
+// Variables globales para el personaje y los controles
+let player;
+let cursors;
+const playerSpeed = 200; // Velocidad de movimiento
+
+// --- FASE 1: PRELOAD (Cargar recursos) ---
+function preload() {
+    // Cargamos las imágenes desde la carpeta 'assets'
+    this.load.image('pasto', 'assets/grass.png');
+    this.load.image('jugador', 'assets/player.png');
+}
+
+// --- FASE 2: CREATE (Crear objetos al inicio) ---
+function create() {
+    // 1. Crear el Mapa de Pasto (Mosaico/Tiling)
+    // Creamos un 'tileSprite' que repite la imagen de pasto por todo el mapa.
+    // Usamos el doble del ancho/alto para que cubra todo si movemos la cámara luego.
+    this.add.tileSprite(0, 0, 1600, 1200, 'pasto').setOrigin(0, 0);
+
+    // 2. Crear el Personaje
+    // Lo posicionamos en el centro de la pantalla (config.width/2, config.height/2)
+    player = this.physics.add.sprite(config.width / 2, config.height / 2, 'jugador');
+
+    // Hacemos que el personaje choque con los límites del mundo (la pantalla)
+    player.setCollideWorldBounds(true);
+
+    // 3. Configurar Controles
+    // Crea un objeto con las teclas de flecha (arriba, abajo, izquierda, derecha)
+    cursors = this.input.keyboard.createCursorKeys();
+}
+
+// --- FASE 3: UPDATE (Se ejecuta en cada frame, aprox 60 veces por segundo) ---
+function update() {
+    // Detenemos el movimiento previo (si no se presiona nada, se para)
+    player.setVelocity(0);
+
+    // Movimiento Horizontal
+    if (cursors.left.isDown) {
+        player.setVelocityX(-playerSpeed);
+    } else if (cursors.right.isDown) {
+        player.setVelocityX(playerSpeed);
+    }
+
+    // Movimiento Vertical
+    if (cursors.up.isDown) {
+        player.setVelocityY(-playerSpeed);
+    } else if (cursors.down.isDown) {
+        player.setVelocityY(playerSpeed);
+    }
+
+    // Normalizar velocidad diagonal (para que no vaya más rápido en diagonal)
+    // Esto es muy importante para el "feeling" tipo Minecraft/Roblox
+    player.body.velocity.normalize().scale(playerSpeed);
+}
+</script>
+
+</body>
+</html>
