@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Constructor de Tienda</title>
+    <style>
+        :root { --pink: #ff007f; }
+        body { background: #050505; color: white; font-family: 'Segoe UI', sans-serif; padding: 40px; }
+        .admin-panel { max-width: 600px; background: #111; padding: 25px; border-radius: 15px; border: 1px solid var(--pink); box-shadow: 0 0 20px rgba(255,0,127,0.2); }
+        h1 { color: var(--pink); font-size: 20px; text-transform: uppercase; }
+        .option { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; color: #aaa; }
+        input, select { width: 100%; padding: 10px; background: #000; border: 1px solid #333; color: white; border-radius: 5px; }
+        .btn-save { background: var(--pink); color: white; border: none; padding: 15px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .btn-save:hover { box-shadow: 0 0 15px var(--pink); }
+    </style>
+</head>
+<body>
+
+    <div class="admin-panel">
+        <h1>Gestión de Negocio (Admin)</h1>
+        
+        <div class="option">
+            <label>Color de Paredes Interiores</label>
+            <input type="color" id="wallColor" value="#222222">
+        </div>
+
+        <div class="option">
+            <label>Precio del Vaso de Agua ($)</label>
+            <input type="number" id="waterPrice" value="50">
+        </div>
+
+        <div class="option">
+            <label>Elementos Extra</label>
+            <select id="extraObject">
+                <option value="none">Ninguno</option>
+                <option value="plant">Planta Decorativa</option>
+                <option value="fridge">Heladera Neón</option>
+            </select>
+        </div>
+
+        <div class="option">
+            <label>Nombre del NPC Vendedor</label>
+            <input type="text" id="npcName" value="Damián NPC">
+        </div>
+
+        <button class="btn-save" onclick="saveStore()">FORZAR ACTUALIZACIÓN EN MAPA</button>
+    </div>
+
+    <script>
+        function saveStore() {
+            const config = {
+                colorParedes: document.getElementById('wallColor').value,
+                precioAgua: document.getElementById('waterPrice').value,
+                objeto: document.getElementById('extraObject').value,
+                vendedor: document.getElementById('npcName').value,
+                activa: true
+            };
+            localStorage.setItem('tienda_config', JSON.stringify(config));
+            alert("Tienda actualizada. Los cambios se verán al entrar al mapa.");
+        }
+    </script>
+</body>
+</html>
