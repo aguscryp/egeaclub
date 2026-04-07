@@ -6,31 +6,40 @@
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
-        /* UI ESTILO PINK PRO */
-        #ui-layer {
-            position: absolute; top: 20px; left: 20px;
-            background: rgba(10, 10, 10, 0.8);
-            padding: 15px; border-radius: 12px;
-            border: 1px solid #ff007f; color: white;
-            box-shadow: 0 0 15px rgba(255, 0, 127, 0.3);
-            z-index: 100;
-        }
-        .pink { color: #ff007f; font-weight: bold; }
-        
+        /* PANTALLA DE CARGA PINK NEON */
         #loading-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; color: #ff007f; display: flex;
-            align-items: center; justify-content: center; z-index: 1000;
+            background: #050505; color: #ff007f; display: flex;
+            flex-direction: column; align-items: center; justify-content: center; z-index: 1000;
         }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid rgba(255, 0, 127, 0.1);
+            border-top: 5px solid #ff007f; border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* UI DEL JUEGO */
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px;
+            background: rgba(10, 10, 10, 0.85); padding: 15px; border-radius: 12px;
+            border: 1px solid #ff007f; color: white; z-index: 100;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.3); backdrop-filter: blur(5px);
+        }
+        .user-tag { color: #ff007f; font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-<div id="loading-screen">Cargando Mundo de <span id="user-load"></span>...</div>
+<div id="loading-screen">
+    <div class="spinner"></div>
+    <div>ENTRANDO AL MUNDO: <span id="user-load" style="font-weight:bold;"></span></div>
+</div>
 
 <div id="ui-layer">
-    <div>Jugador: <span id="playerName" class="pink"></span></div>
-    <small>WASD: Mover | E: Interactuar</small>
+    <div>SESIÓN: <span id="playerName" class="user-tag"></span></div>
+    <hr style="border: 0; border-top: 1px solid rgba(255,0,127,0.3); margin: 10px 0;">
+    <small><b>WASD</b>: Caminar | <b>E</b>: Subir a SW4 | <b>MOUSE</b>: Cámara</small>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -40,18 +49,20 @@
 <script src="logica.js"></script>
 
 <script>
-    // Recuperar datos de sesión
     const usuario = localStorage.getItem('currentUser') || "Invitado";
     document.getElementById('playerName').innerText = usuario;
     document.getElementById('user-load').innerText = usuario;
 
-    // Iniciar el motor que reside en logica.js
-    window.onload = () => {
-        initGame();
-        setTimeout(() => {
-            document.getElementById('loading-screen').style.display = 'none';
-        }, 1000);
-    };
+    // Arrancamos el mapa global
+    initGame();
+
+    // Esta función la llamaremos desde logica.js cuando todo cargue
+    function quitarCarga() {
+        const screen = document.getElementById('loading-screen');
+        screen.style.transition = "opacity 0.8s ease";
+        screen.style.opacity = "0";
+        setTimeout(() => screen.style.display = 'none', 800);
+    }
 </script>
 </body>
 </html>
