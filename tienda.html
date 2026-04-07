@@ -4,73 +4,71 @@
     <meta charset="UTF-8">
     <title>Admin - Arquitecto de Tienda</title>
     <style>
-        :root { --pink: #ff007f; --glass: rgba(15, 15, 15, 0.85); }
+        :root { --pink: #ff007f; --dark: #0a0a0a; }
         body { margin: 0; display: flex; background: #000; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* UI LATERAL ESTILO NEON FLOW */
         #editor-ui { 
-            width: 380px; height: 100vh; background: var(--glass); 
-            border-right: 2px solid var(--pink); padding: 25px; box-sizing: border-box; 
-            z-index: 10; backdrop-filter: blur(15px); overflow-y: auto;
+            width: 350px; height: 100vh; background: rgba(15, 15, 15, 0.95); 
+            border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box; 
+            z-index: 10; backdrop-filter: blur(10px); overflow-y: auto;
         }
         
-        h1 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; border-bottom: 2px solid #222; padding-bottom: 10px; }
-        .section { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #333; }
-        label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+        h1 { color: var(--pink); font-size: 16px; text-transform: uppercase; border-bottom: 2px solid #222; padding-bottom: 10px; }
+        .section { background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #333; }
+        label { display: block; font-size: 10px; color: #888; text-transform: uppercase; margin-bottom: 5px; }
 
         select, input { width: 100%; padding: 10px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; margin-bottom: 10px; }
-        select:focus, input:focus { border-color: var(--pink); outline: none; }
+        
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+        .btn-action { background: #252525; color: white; border: 1px solid #444; padding: 10px; cursor: pointer; border-radius: 5px; font-size: 10px; }
+        .btn-action:hover { background: var(--pink); }
 
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .btn-action { background: #222; color: white; border: 1px solid #444; padding: 10px; cursor: pointer; border-radius: 5px; font-size: 11px; transition: 0.2s; }
-        .btn-action:hover { background: var(--pink); border-color: var(--pink); }
+        .btn-save { background: var(--pink); color: white; border: none; padding: 15px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; }
 
-        .btn-save { background: var(--pink); color: white; border: none; padding: 18px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 15px; text-transform: uppercase; box-shadow: 0 0 15px rgba(255,0,127,0.3); }
-
-        #canvas-container { flex: 1; height: 100vh; }
-        .hint { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; font-size: 12px; border-radius: 5px; border: 1px solid #444; }
+        #canvas-container { flex: 1; height: 100vh; background: #111; }
+        .controls-hint { position: absolute; bottom: 20px; right: 20px; color: #666; font-size: 12px; pointer-events: none; }
     </style>
 </head>
 <body>
 
     <div id="editor-ui">
-        <h1>Tienda Editor Pro</h1>
+        <h1>Editor de Tienda</h1>
 
         <div class="section">
-            <label>Música (Link de YouTube)</label>
-            <input type="text" id="yt-link" placeholder="https://www.youtube.com/watch?v=..." onchange="saveMusic()">
+            <label>Música (URL Youtube)</label>
+            <input type="text" id="yt-link" placeholder="Enlace de música...">
         </div>
 
         <div class="section">
-            <label>Cartel de Bienvenida</label>
-            <input type="text" id="sign-text" placeholder="Ej: Bienvenidos a AgusTienda" oninput="updateSign()">
+            <label>Texto del Cartel</label>
+            <input type="text" id="sign-text" placeholder="Mi Tienda Neón">
         </div>
 
         <div class="section">
-            <label>Seleccionar Objeto</label>
+            <label>Objeto a colocar</label>
             <select id="selectedObj">
-                <option value="dispenser">Dispenser de Agua</option>
-                <option value="heladera">Heladera Neón</option>
-                <option value="mostrador">Mostrador Principal</option>
-                <option value="computadora">Computadora Gamer</option>
-                <option value="planta">Planta Decorativa</option>
-                <option value="silla">Silla de Oficina</option>
-                <option value="parlante">Parlante Básico</option>
+                <option value="mostrador">Mostrador</option>
+                <option value="dispenser">Dispenser</option>
+                <option value="heladera">Heladera</option>
+                <option value="computadora">Computadora</option>
+                <option value="planta">Planta</option>
+                <option value="silla">Silla</option>
+                <option value="parlante">Parlante</option>
             </select>
-            <label>Controles de Posición (Ejes X / Z)</label>
+            <label>Mover Objeto</label>
             <div class="btn-grid">
-                <button class="btn-action" onclick="moveObj('z', -0.5)">ADELANTE (W)</button>
-                <button class="btn-action" onclick="moveObj('z', 0.5)">ATRÁS (S)</button>
-                <button class="btn-action" onclick="moveObj('x', -0.5)">IZQUIERDA (A)</button>
-                <button class="btn-action" onclick="moveObj('x', 0.5)">DERECHA (D)</button>
+                <button class="btn-action" onclick="moveObj('z', -0.5)">ADELANTE</button>
+                <button class="btn-action" onclick="moveObj('z', 0.5)">ATRÁS</button>
+                <button class="btn-action" onclick="moveObj('x', -0.5)">IZQUIERDA</button>
+                <button class="btn-action" onclick="moveObj('x', 0.5)">DERECHA</button>
             </div>
         </div>
 
-        <button class="btn-save" onclick="saveTotal()">FORZAR CAMBIOS EN MAPA</button>
+        <button class="btn-save" onclick="saveTotal()">Guardar Configuración</button>
     </div>
 
     <div id="canvas-container"></div>
-    <div class="hint">🖱️ Mantené CLICK DERECHO para rotar cámara | CLICK IZQUIERDO para orbitar</div>
+    <div class="controls-hint">Click Izquierdo: Rotar | Click Derecho: Desplazar | Rueda: Zoom</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -78,77 +76,95 @@
     <script>
         let scene, camera, renderer, controls;
         let worldObjects = {};
-        
+
         function init() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050505);
+            scene.background = new THREE.Color(0x0a0a0a); // Fondo muy oscuro pero no negro total
 
             camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(10, 8, 15);
+            camera.position.set(15, 15, 15);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
-            // Luces
-            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-            const spot = new THREE.PointLight(0ff007f, 1.5);
-            spot.position.set(0, 10, 0);
-            scene.add(spot);
+            // --- ILUMINACIÓN (Crucial para que no se vea negro) ---
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Luz ambiental fuerte
+            scene.add(ambientLight);
 
-            // Controles de Cámara Libre (OrbitControls)
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(10, 20, 10);
+            scene.add(directionalLight);
+
+            const pointLight = new THREE.PointLight(0xff007f, 1); // Luz Neón Rosa
+            pointLight.position.set(0, 5, 0);
+            scene.add(pointLight);
+
+            // Ayudante de Cuadrícula (Para ver el suelo)
+            const grid = new THREE.GridHelper(20, 20, 0xff007f, 0x333333);
+            scene.add(grid);
+
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            buildStructure();
-            createAssets();
+            buildStoreShell();
+            createPlaceables();
             animate();
         }
 
-        function buildStructure() {
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a });
-
-            // Suelo de la tienda
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMat);
-            floor.rotation.x = -Math.PI/2;
-            scene.add(floor);
-
-            // Paredes con huecos (simulados)
-            const walls = new THREE.Group();
-            const p1 = new THREE.Mesh(new THREE.BoxGeometry(20, 7, 0.5), wallMat); p1.position.set(0, 3.5, -10);
-            const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 7, 20), wallMat); p2.position.set(-10, 3.5, 0);
-            const p3 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 7, 20), wallMat); p3.position.set(10, 3.5, 0);
-            // Frontal con puerta
-            const p4a = new THREE.Mesh(new THREE.BoxGeometry(8, 7, 0.5), wallMat); p4a.position.set(-6, 3.5, 10);
-            const p4b = new THREE.Mesh(new THREE.BoxGeometry(8, 7, 0.5), wallMat); p4b.position.set(6, 3.5, 10);
+        function buildStoreShell() {
+            const matPared = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, side: THREE.DoubleSide });
             
-            walls.add(p1, p2, p3, p4a, p4b);
+            // Estructura de paredes grandes (16x16)
+            const wallH = 6;
+            const wallW = 16;
+            
+            const walls = new THREE.Group();
+            
+            // Atrás, Izquierda, Derecha
+            const pAtras = new THREE.Mesh(new THREE.BoxGeometry(wallW, wallH, 0.5), matPared);
+            pAtras.position.set(0, wallH/2, -wallW/2);
+            
+            const pIzq = new THREE.Mesh(new THREE.BoxGeometry(0.5, wallH, wallW), matPared);
+            pIzq.position.set(-wallW/2, wallH/2, 0);
+
+            const pDer = new THREE.Mesh(new THREE.BoxGeometry(0.5, wallH, wallW), matPared);
+            pDer.position.set(wallW/2, wallH/2, 0);
+
+            // Frontal (Con espacio para puerta)
+            const pFront1 = new THREE.Mesh(new THREE.BoxGeometry(6, wallH, 0.5), matPared);
+            pFront1.position.set(-5, wallH/2, wallW/2);
+            const pFront2 = new THREE.Mesh(new THREE.BoxGeometry(6, wallH, 0.5), matPared);
+            pFront2.position.set(5, wallH/2, wallW/2);
+
+            walls.add(pAtras, pIzq, pDer, pFront1, pFront2);
             scene.add(walls);
         }
 
-        function createAssets() {
-            // Definición de modelos básicos para el editor
-            const matGris = new THREE.MeshStandardMaterial({color: 0x555555});
-            const matPink = new THREE.MeshStandardMaterial({color: 0xff007f});
-
-            const assets = {
-                dispenser: new THREE.BoxGeometry(0.8, 1.8, 0.8),
-                heladera: new THREE.BoxGeometry(1.5, 3, 1.2),
-                mostrador: new THREE.BoxGeometry(5, 1.2, 1.5),
+        function createPlaceables() {
+            const geometries = {
+                mostrador: new THREE.BoxGeometry(4, 1.2, 1.2),
+                dispenser: new THREE.BoxGeometry(0.7, 1.8, 0.7),
+                heladera: new THREE.BoxGeometry(1.2, 2.5, 1),
                 computadora: new THREE.BoxGeometry(0.8, 0.6, 0.1),
-                planta: new THREE.CylinderGeometry(0.2, 0.4, 1.5),
-                silla: new THREE.BoxGeometry(0.7, 1, 0.7),
-                parlante: new THREE.BoxGeometry(0.4, 0.8, 0.4)
+                planta: new THREE.CylinderGeometry(0.3, 0.4, 1.2),
+                silla: new THREE.BoxGeometry(0.6, 0.8, 0.6),
+                parlante: new THREE.BoxGeometry(0.4, 0.7, 0.4)
             };
 
-            for(let key in assets) {
-                const mesh = new THREE.Mesh(assets[key], key === 'heladera' ? matPink : matGris);
-                mesh.position.y = assets[key].parameters ? (assets[key].parameters.height / 2 || 1) : 1;
-                mesh.position.x = Math.random() * 5 - 2.5;
+            const colors = {
+                mostrador: 0x5d4037, heladera: 0x222222, dispenser: 0x00aaff, 
+                computadora: 0x111111, planta: 0x2e7d32, silla: 0x333333, parlante: 0x000000
+            };
+
+            for (let id in geometries) {
+                const mat = new THREE.MeshStandardMaterial({ color: colors[id] });
+                const mesh = new THREE.Mesh(geometries[id], mat);
+                mesh.position.y = 1; 
+                mesh.position.x = (Math.random() - 0.5) * 5; // Esparcir al inicio
                 scene.add(mesh);
-                worldObjects[key] = { mesh: mesh, x: mesh.position.x, z: 0 };
+                worldObjects[id] = { mesh: mesh, x: mesh.position.x, z: 0 };
             }
         }
 
@@ -165,20 +181,20 @@
         }
 
         window.saveTotal = function() {
-            const finalPos = {};
+            const posData = {};
             for(let key in worldObjects) {
-                finalPos[key] = { x: worldObjects[key].x, z: worldObjects[key].z };
+                posData[key] = { x: worldObjects[key].x, z: worldObjects[key].z };
             }
 
-            const tiendaData = {
-                posiciones: finalPos,
+            const config = {
+                activa: true,
+                posiciones: posData,
                 musica: document.getElementById('yt-link').value,
-                textoCartel: document.getElementById('sign-text').value,
-                activa: true
+                texto: document.getElementById('sign-text').value,
+                colorParedes: "#1a1a1a"
             };
-
-            localStorage.setItem('tienda_config', JSON.stringify(tiendaData));
-            alert("Sincronización completa con el Mapa.");
+            localStorage.setItem('tienda_config', JSON.stringify(config));
+            alert("Tienda guardada con éxito.");
         }
 
         window.onload = init;
