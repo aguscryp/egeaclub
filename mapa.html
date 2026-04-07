@@ -2,44 +2,49 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Libre | Cowboy Engine Pro</title>
+    <title>Cowboy Engine | Mundo Dinámico</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
-        /* HUD DE SUPERVIVENCIA ESTILO NEON FLOW */
-        #hud-container {
+        /* HUD DE ESTADO */
+        #ui-layer {
             position: absolute; top: 20px; left: 20px;
-            display: flex; flex-direction: column; gap: 10px;
-            z-index: 100;
+            display: flex; flex-direction: column; gap: 12px;
+            z-index: 100; pointer-events: none;
         }
-        .stat-box {
-            background: rgba(10, 10, 10, 0.85); color: white;
-            padding: 10px 15px; border-radius: 8px;
-            border-left: 4px solid #ff007f; min-width: 180px;
-            backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        .stat-card {
+            background: rgba(5, 5, 5, 0.9); color: white;
+            padding: 12px 20px; border-radius: 10px;
+            border-left: 4px solid #ff007f; min-width: 200px;
+            backdrop-filter: blur(8px); box-shadow: 0 5px 15px rgba(0,0,0,0.8);
         }
-        .bar-bg { background: #333; height: 6px; width: 100%; border-radius: 3px; margin-top: 5px; overflow: hidden; }
-        .bar-fill { height: 100%; background: #ff007f; transition: width 0.3s; }
-        .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; }
-        .val { float: right; color: #ff007f; font-weight: bold; }
+        .bar-container { background: #222; height: 8px; border-radius: 4px; margin-top: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; background: #ff007f; transition: width 0.4s ease; }
+        .label { font-size: 10px; text-transform: uppercase; color: #888; display: flex; justify-content: space-between; }
+        
+        /* MENSAJE DE INTERACCIÓN */
+        #interact-msg {
+            position: absolute; bottom: 100px; width: 100%;
+            text-align: center; color: #ff007f; font-weight: bold;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 10px #ff007f; display: none;
+        }
     </style>
 </head>
 <body>
 
-    <div id="hud-container">
-        <div class="stat-box">
-            <div class="label">Energía <span class="val" id="n-energia">100%</span></div>
-            <div class="bar-bg"><div id="b-energia" class="bar-fill"></div></div>
+    <div id="ui-layer">
+        <div class="stat-card">
+            <div class="label">Energía <span id="txt-energia">100%</span></div>
+            <div class="bar-container"><div id="bar-energia" class="bar-fill"></div></div>
         </div>
-        <div class="stat-box">
-            <div class="label">Hidratación <span class="val" id="n-sed">100%</span></div>
-            <div class="bar-bg"><div id="b-sed" class="bar-fill" style="background: #00d4ff;"></div></div>
-        </div>
-        <div class="stat-box">
-            <div class="label">Alimentación <span class="val" id="n-hambre">100%</span></div>
-            <div class="bar-bg"><div id="b-hambre" class="bar-fill" style="background: #ffaa00;"></div></div>
+        <div class="stat-card">
+            <div class="label">Hidratación <span id="txt-sed">100%</span></div>
+            <div class="bar-container"><div id="bar-sed" class="bar-fill" style="background: #00d4ff;"></div></div>
         </div>
     </div>
+
+    <div id="interact-msg">Presiona [E] para interactuar</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -47,12 +52,13 @@
     <script>
         let scene, camera, renderer, controls, vaquero;
         let pIzq, pDer, bIzq, bDer, torso;
-        let config = JSON.parse(localStorage.getItem('playerConfig'));
         const keys = {};
-
-        // Variables de estado (ADN del personaje)
-        let stats = config.stats || { hambre: 100, sed: 100, energia: 100 };
-        let cansancio = 0;
+        
+        // Carga de ADN desde Perfil y Tienda
+        const playerConfig = JSON.parse(localStorage.getItem('playerConfig')) || { color: '#ff007f', musculo: 1, altura: 1 };
+        const tiendaConfig = JSON.parse(localStorage.getItem('tienda_config')) || { activa: false };
+        
+        let stats = { energia: 100, sed: 100 };
 
         function init() {
             scene = new THREE.Scene();
@@ -65,32 +71,32 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // Luz
+            // Iluminación
             scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             const sun = new THREE.DirectionalLight(0xffffff, 1.0);
             sun.position.set(50, 100, 50);
             scene.add(sun);
 
-            // Suelo Verde
+            // Suelo
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(2000, 2000), new THREE.MeshStandardMaterial({color: 0x4caf50}));
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            buildVaquero();
-            
+            buildPlayer();
+            if(tiendaConfig.activa) spawnTienda();
+
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             window.addEventListener('keydown', (e) => keys[e.code] = true);
             window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-            setInterval(updateNeeds, 5000); // Actualiza hambre/sed cada 5 segundos
             animate();
         }
 
-        function buildVaquero() {
+        function buildPlayer() {
             vaquero = new THREE.Group();
-            const matR = new THREE.MeshStandardMaterial({ color: config.color });
+            const matR = new THREE.MeshStandardMaterial({ color: playerConfig.color });
             const matP = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-            const mScale = parseFloat(config.musculo);
+            const mScale = parseFloat(playerConfig.musculo);
 
             torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matR);
             torso.position.y = 1.6;
@@ -98,7 +104,7 @@
             const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matP);
             cabeza.position.y = 2.5;
 
-            pIzq = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 0.3), matR);
+            pIzq = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1, 0.35), matR);
             pIzq.position.set(-0.25, 0.5, 0);
             pIzq.scale.set(mScale, 1, mScale);
 
@@ -113,68 +119,89 @@
             bDer.position.x = 0.6 * mScale;
 
             vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
-            vaquero.scale.y = parseFloat(config.altura);
+            vaquero.scale.y = parseFloat(playerConfig.altura);
             scene.add(vaquero);
         }
 
-        function updateNeeds() {
-            // Consumo natural
-            stats.hambre = Math.max(0, stats.hambre - 0.5);
-            stats.sed = Math.max(0, stats.sed - 1.0);
+        function spawnTienda() {
+            const tienda = new THREE.Group();
             
-            // Si el hambre o sed llegan a 0, la energía baja más rápido
-            if(stats.hambre <= 0 || stats.sed <= 0) stats.energia = Math.max(0, stats.energia - 2);
+            // Paredes (Color forzado desde tienda.html)
+            const walls = new THREE.Mesh(
+                new THREE.BoxGeometry(10, 6, 10), 
+                new THREE.MeshStandardMaterial({ color: tiendaConfig.colorParedes, side: THREE.DoubleSide })
+            );
+            walls.position.set(20, 3, -20);
+            tienda.add(walls);
 
-            updateHUD();
-        }
+            // Dispenser de Agua
+            const dispenser = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.4, 0.7), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
+            const bidon = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.6), new THREE.MeshStandardMaterial({color: 0x00aaff, transparent:true, opacity:0.6}));
+            bidon.position.y = 1;
+            dispenser.add(base, bidon);
+            dispenser.position.set(16, 0.7, -18);
+            scene.add(dispenser);
 
-        function updateHUD() {
-            document.getElementById('b-energia').style.width = stats.energia + "%";
-            document.getElementById('n-energia').innerText = Math.round(stats.energia) + "%";
-            document.getElementById('b-sed').style.width = stats.sed + "%";
-            document.getElementById('n-sed').innerText = Math.round(stats.sed) + "%";
-            document.getElementById('b-hambre').style.width = stats.hambre + "%";
-            document.getElementById('n-hambre').innerText = Math.round(stats.hambre) + "%";
+            // NPC Vendedor
+            const npc = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2, 0.8), new THREE.MeshStandardMaterial({color: 0x333333}));
+            npc.position.set(20, 1, -20);
+            scene.add(npc);
+
+            scene.add(tienda);
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            let moving = false;
-            const time = Date.now() * 0.01;
+            let isMoving = false;
 
             if(vaquero) {
-                // FÍSICA DE MOVIMIENTO VS CANSANCIO
-                // Si la energía es baja, la velocidad máxima baja
-                let currentSpeed = 0.25 * (stats.energia / 100);
-                if(keys['KeyW']) { vaquero.translateZ(currentSpeed); moving = true; stats.energia -= 0.05; }
-                if(keys['KeyS']) { vaquero.translateZ(-currentSpeed); moving = true; }
-                if(keys['KeyA']) { vaquero.rotation.y += 0.05; moving = true; }
-                if(keys['KeyD']) { vaquero.rotation.y -= 0.05; moving = true; }
+                const speed = 0.25 * (stats.energia / 100);
+                if(keys['KeyW']) { vaquero.translateZ(speed); isMoving = true; stats.energia -= 0.05; }
+                if(keys['KeyS']) { vaquero.translateZ(-speed); isMoving = true; }
+                if(keys['KeyA']) { vaquero.rotation.y += 0.06; isMoving = true; }
+                if(keys['KeyD']) { vaquero.rotation.y -= 0.06; isMoving = true; }
 
-                // Recuperación de energía si está quieto
-                if(!moving && stats.energia < 100) stats.energia += 0.1;
+                // Consumo pasivo de sed
+                stats.sed = Math.max(0, stats.sed - 0.01);
 
-                // ANIMACIONES REALISTAS
-                if(moving) {
-                    const walkT = Date.now() * 0.012;
-                    pIzq.rotation.x = Math.sin(walkT) * 0.6;
-                    pDer.rotation.x = -Math.sin(walkT) * 0.6;
-                    bIzq.rotation.x = -Math.sin(walkT) * 0.5;
-                    bDer.rotation.x = Math.sin(walkT) * 0.5;
+                // Animación física
+                if(isMoving) {
+                    const t = Date.now() * 0.012;
+                    pIzq.rotation.x = Math.sin(t) * 0.6;
+                    pDer.rotation.x = -Math.sin(t) * 0.6;
+                    bIzq.rotation.x = -Math.sin(t) * 0.5;
+                    bDer.rotation.x = Math.sin(t) * 0.5;
                 } else {
-                    // Respiración (Idle) - Se acelera si tiene poca energía
-                    const breathSpeed = stats.energia < 30 ? 0.03 : 0.015;
-                    torso.scale.x = 1 + Math.sin(Date.now() * breathSpeed) * 0.03;
+                    if(stats.energia < 100) stats.energia += 0.08;
                     pIzq.rotation.x = pDer.rotation.x = bIzq.rotation.x = bDer.rotation.x = 0;
+                    // Respiración
+                    torso.scale.x = 1 + Math.sin(Date.now() * 0.002) * 0.03;
                 }
 
-                // Seguimiento de cámara
-                const camOffset = new THREE.Vector3(0, 8, 16).applyMatrix4(vaquero.matrixWorld);
-                camera.position.lerp(camOffset, 0.1);
+                // Lógica de Proximidad al Dispenser (Coord: 16, -18)
+                const dist = vaquero.position.distanceTo(new THREE.Vector3(16, 0, -18));
+                const msg = document.getElementById('interact-msg');
+                if(dist < 3) {
+                    msg.style.display = 'block';
+                    if(keys['KeyE']) {
+                        stats.sed = 100;
+                        console.log("Bebiendo agua...");
+                    }
+                } else { msg.style.display = 'none'; }
+
+                // Cámara
+                const offset = new THREE.Vector3(0, 7, 15).applyMatrix4(vaquero.matrixWorld);
+                camera.position.lerp(offset, 0.1);
                 controls.target.lerp(vaquero.position, 0.1);
             }
 
-            updateHUD();
+            // Actualizar HUD
+            document.getElementById('bar-energia').style.width = stats.energia + "%";
+            document.getElementById('bar-sed').style.width = stats.sed + "%";
+            document.getElementById('txt-energia').innerText = Math.round(stats.energia) + "%";
+            document.getElementById('txt-sed').innerText = Math.round(stats.sed) + "%";
+
             controls.update();
             renderer.render(scene, camera);
         }
