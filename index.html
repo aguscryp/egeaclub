@@ -3,222 +3,184 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prototipo Mundo Bloques 2D</title>
+    <title>Roblox 2D Style - WASD Edition</title>
     <style>
-        /* CSS para centrar el juego y que se vea limpio */
         body {
             margin: 0;
-            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #222; /* Fondo oscuro fuera del juego */
-            overflow: hidden; /* Evita scrolls */
-            color: white;
-            font-family: sans-serif;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
         }
 
-        #contenedor-juego {
+        #contenedor {
             position: relative;
-        }
-
-        canvas {
-            border: 4px solid #fff;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            background-color: #eee; /* Color de carga */
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            overflow: hidden;
         }
 
         #ui {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 10px;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #0f0;
+            padding: 10px 15px;
             border-radius: 5px;
-            pointer-events: none; /* No interfiere con el clicks */
+            font-family: monospace;
+            pointer-events: none;
+            border-left: 4px solid #0f0;
+        }
+
+        canvas {
+            display: block;
+            background-color: #348c31;
         }
     </style>
 </head>
 <body>
 
-    <div id="contenedor-juego">
-        <div id="ui">Usa las flechas para moverte</div>
-        <canvas id="canvasJuego" width="800" height="600"></canvas>
+    <div id="contenedor">
+        <div id="ui">MOVIMIENTO: [W, A, S, D]</div>
+        <canvas id="mundo"></canvas>
     </div>
 
-    <script>
-        // --- CONFIGURACIÓN Y JAVASCRIPT ---
+<script>
+    const canvas = document.getElementById('mundo');
+    const ctx = canvas.getContext('2d');
 
-        const canvas = document.getElementById('canvasJuego');
-        const ctx = canvas.getContext('2d'); // El contexto de dibujo 2D
+    // Ajuste de pantalla
+    canvas.width = 900;
+    canvas.height = 600;
 
-        // Configuración del mundo
-        const TAMAÑO_TILE = 40; // Tamaño de cada "bloque" o cuadrado del mapa (px)
-        const ANCHO_MAPA = canvas.width / TAMAÑO_TILE; // Cuántos bloques de ancho
-        const ALTO_MAPA = canvas.height / TAMAÑO_TILE; // Cuántos bloques de alto
+    const config = {
+        tileSize: 50,
+        playerSpeed: 4.5,
+        grassColor1: '#3fa33a', // Verde base
+        grassColor2: '#2e8b29', // Verde sombra
+        detailDensity: 0.15     // Cantidad de "pastitos" realistas
+    };
 
-        // --- EL JUGADOR (Estilo bloque Roblox/Minecraft) ---
-        // Lo definimos como un objeto con su posición, tamaño y velocidad
-        const jugador = {
-            // Posición inicial (centrado en el mapa)
-            x: (canvas.width / 2) - (TAMAÑO_TILE / 2),
-            y: (canvas.height / 2) - (TAMAÑO_TILE / 2),
-            ancho: TAMAÑO_TILE * 0.8, // Un poco más pequeño que el bloque para que se vea mejor
-            alto: TAMAÑO_TILE * 0.8,
-            colorCuerpo: '#e74c3c', // Rojo Roblox
-            colorCara: '#f1c40f',    // Amarillo para los "ojos"
-            velocidad: 5,            // Píxeles por frame
-            movimiento: { x: 0, y: 0 } // Dirección actual
-        };
+    const jugador = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        size: 35,
+        color: '#e63946', // Rojo vibrante tipo Roblox
+        headColor: '#ffb703', // Tono de piel / cabeza
+        dirX: 0,
+        dirY: 0
+    };
 
-        // --- SISTEMA DE CONTROLES ---
-        // Objeto para rastrear qué teclas están presionadas
-        const teclas = {
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false,
-            ArrowRight: false
-        };
+    const teclas = { w: false, a: false, s: false, d: false };
 
-        // Escuchamos cuando se presiona una tecla
-        window.addEventListener('keydown', e => {
-            if (teclas.hasOwnProperty(e.key)) {
-                teclas[e.key] = true;
-                e.preventDefault(); // Evita que la página haga scroll
-            }
-        });
+    // --- GENERACIÓN DE MAPA "REALISTA" ---
+    // Creamos un canvas oculto para la textura de pasto y así no procesar tanto cada frame
+    const grassCanvas = document.createElement('canvas');
+    grassCanvas.width = canvas.width;
+    grassCanvas.height = canvas.height;
+    const gCtx = grassCanvas.getContext('2d');
 
-        // Escuchamos cuando se suelta una tecla
-        window.addEventListener('keyup', e => {
-            if (teclas.hasOwnProperty(e.key)) {
-                teclas[e.key] = false;
-            }
-        });
+    function generarMapaRealista() {
+        // Dibujamos bloques base con degradados
+        for (let x = 0; x < canvas.width; x += config.tileSize) {
+            for (let y = 0; y < canvas.height; y += config.tileSize) {
+                // Alternamos color base
+                gCtx.fillStyle = (Math.floor(x/50) + Math.floor(y/50)) % 2 === 0 
+                                 ? config.grassColor1 : config.grassColor2;
+                gCtx.fillRect(x, y, config.tileSize, config.tileSize);
 
-
-        // --- FUNCIONES DE DIBUJO ---
-
-        function dibujarMapa() {
-            // Dibujamos el suelo de pasto corto
-            // Usamos dos tonos de verde para simular bloques (patrón de damas)
-            const verdeOscuro = '#2d922d';
-            const verdeClaro = '#3cb03c';
-
-            for (let y = 0; y < ALTO_MAPA; y++) {
-                for (let x = 0; x < ANCHO_MAPA; x++) {
-                    // Alternar color
-                    ctx.fillStyle = (x + y) % 2 === 0 ? verdeClaro : verdeOscuro;
-                    
-                    // Dibujar el cuadrado (tile)
-                    ctx.fillRect(x * TAMAÑO_TILE, y * TAMAÑO_TILE, TAMAÑO_TILE, TAMAÑO_TILE);
-                    
-                    // Opcional: Dibujar una línea sutil de cuadrícula
-                    /*
-                    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
-                    ctx.strokeRect(x * TAMAÑO_TILE, y * TAMAÑO_TILE, TAMAÑO_TILE, TAMAÑO_TILE);
-                    */
+                // Añadimos "ruido" de briznas de pasto para realismo
+                for (let i = 0; i < 20; i++) {
+                    gCtx.fillStyle = 'rgba(255,255,255,0.05)';
+                    gCtx.fillRect(x + Math.random()*50, y + Math.random()*50, 2, 4);
+                    gCtx.fillStyle = 'rgba(0,0,0,0.05)';
+                    gCtx.fillRect(x + Math.random()*50, y + Math.random()*50, 2, 2);
                 }
             }
         }
+    }
+    generarMapaRealista();
 
-        function dibujarJugador() {
-            // Dibujamos el cuerpo del personaje (un cuadrado)
-            ctx.fillStyle = jugador.colorCuerpo;
-            ctx.fillRect(jugador.x, jugador.y, jugador.ancho, jugador.alto);
+    // Eventos de teclado actualizados a WASD
+    window.onkeydown = (e) => { 
+        const key = e.key.toLowerCase();
+        if (teclas.hasOwnProperty(key)) teclas[key] = true; 
+    };
+    window.onkeyup = (e) => { 
+        const key = e.key.toLowerCase();
+        if (teclas.hasOwnProperty(key)) teclas[key] = false; 
+    };
 
-            // Detalles del personaje (estilo bloque simple)
-            // Añadimos una "cara" simple para saber hacia dónde mira (asumimos que mira "al frente" o abajo por defecto)
-            ctx.fillStyle = jugador.colorCara;
-            
-            // Ojos simples
-            const tamañoOjo = jugador.ancho * 0.2;
-            const separacionOjos = jugador.ancho * 0.2;
-            
-            // Ojo izquierdo
-            ctx.fillRect(
-                jugador.x + separacionOjos, 
-                jugador.y + jugador.alto * 0.2, 
-                tamañoOjo, 
-                tamañoOjo
-            );
-            
-            // Ojo derecho
-            ctx.fillRect(
-                jugador.x + jugador.ancho - separacionOjos - tamañoOjo, 
-                jugador.y + jugador.alto * 0.2, 
-                tamañoOjo, 
-                tamañoOjo
-            );
+    function dibujarJugador() {
+        // 1. Sombra (le da el toque de profundidad de Roblox)
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(jugador.x + 18, jugador.y + 35, 15, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2. Cuerpo (Bloque principal)
+        ctx.fillStyle = jugador.color;
+        ctx.fillRect(jugador.x, jugador.y, jugador.size, jugador.size);
+        
+        // Borde del cuerpo para definición
+        ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+        ctx.strokeRect(jugador.x, jugador.y, jugador.size, jugador.size);
+
+        // 3. Cabeza (Estilo Roblox)
+        ctx.fillStyle = jugador.headColor;
+        const headSize = jugador.size * 0.6;
+        const headX = jugador.x + (jugador.size - headSize) / 2;
+        const headY = jugador.y - headSize * 0.4;
+        ctx.fillRect(headX, headY, headSize, headSize);
+
+        // 4. Cara Simple
+        ctx.fillStyle = '#333';
+        // Ojo izq
+        ctx.fillRect(headX + 5, headY + 5, 4, 4);
+        // Ojo der
+        ctx.fillRect(headX + headSize - 9, headY + 5, 4, 4);
+        // Boca
+        ctx.fillRect(headX + 5, headY + 14, headSize - 10, 2);
+    }
+
+    function update() {
+        jugador.dirX = 0;
+        jugador.dirY = 0;
+
+        if (teclas.w) jugador.dirY = -1;
+        if (teclas.s) jugador.dirY = 1;
+        if (teclas.a) jugador.dirX = -1;
+        if (teclas.d) jugador.dirX = 1;
+
+        // Normalización de velocidad diagonal
+        if (jugador.dirX !== 0 && jugador.dirY !== 0) {
+            jugador.dirX *= 0.7071;
+            jugador.dirY *= 0.7071;
         }
 
+        // Colisiones con bordes
+        let nx = jugador.x + jugador.dirX * config.playerSpeed;
+        let ny = jugador.y + jugador.dirY * config.playerSpeed;
 
-        // --- LÓGICA DEL JUEGO (Actualización) ---
+        if (nx > 0 && nx < canvas.width - jugador.size) jugador.x = nx;
+        if (ny > 15 && ny < canvas.height - jugador.size) jugador.y = ny;
+    }
 
-        function actualizarLógica() {
-            // Reiniciamos vector de movimiento
-            jugador.movimiento.x = 0;
-            jugador.movimiento.y = 0;
+    function loop() {
+        // Dibujamos la textura pre-generada (mucho más rápido)
+        ctx.drawImage(grassCanvas, 0, 0);
+        
+        update();
+        dibujarJugador();
+        
+        requestAnimationFrame(loop);
+    }
 
-            // Procesamos inputs
-            if (teclas.ArrowUp)    jugador.movimiento.y = -1;
-            if (teclas.ArrowDown)  jugador.movimiento.y = 1;
-            if (teclas.ArrowLeft)  jugador.movimiento.x = -1;
-            if (teclas.ArrowRight) jugador.movimiento.x = 1;
-
-            // --- Movimiento Tipo Roblox/Minecraft (Velocidad Constante) ---
-            // Si nos movemos en diagonal (ej: arriba y derecha), la velocidad se sumaría
-            // y el personaje iría más rápido. Tenemos que "normalizar" el vector.
-            
-            let vx = jugador.movimiento.x;
-            let vy = jugador.movimiento.y;
-
-            if (vx !== 0 && vy !== 0) {
-                // Si es diagonal, multiplicamos por 0.7071 (la inversa de la raíz de 2)
-                // para que la velocidad total sea siempre la misma.
-                vx *= 0.7071;
-                vy *= 0.7071;
-            }
-
-            // Aplicamos la velocidad y actualizamos la posición
-            let nuevaX = jugador.x + (vx * jugador.velocidad);
-            let nuevaY = jugador.y + (vy * jugador.velocidad);
-
-            // --- COLISIONES CON LOS BORDES DEL MAPA ---
-            // Evitamos que el personaje se salga del canvas
-            if (nuevaX < 0) nuevaX = 0;
-            if (nuevaX + jugador.ancho > canvas.width) nuevaX = canvas.width - jugador.ancho;
-            
-            if (nuevaY < 0) nuevaY = 0;
-            if (nuevaY + jugador.alto > canvas.height) nuevaY = canvas.height - jugador.alto;
-
-            // Aplicamos la posición final validada
-            jugador.x = nuevaX;
-            jugador.y = nuevaY;
-        }
-
-
-        // --- BUCLE PRINCIPAL DEL JUEGO (Game Loop) ---
-
-        function bucleJuego() {
-            // 1. Limpiar el canvas (borrar el frame anterior)
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 2. Actualizar la lógica (movimiento, colisiones)
-            actualizarLógica();
-
-            // 3. Dibujar todo
-            dibujarMapa();
-            dibujarJugador();
-
-            // 4. Llamar al siguiente frame
-            // Esta función le dice al navegador que ejecute bucleJuego en el próximo refresco de pantalla
-            requestAnimationFrame(bucleJuego);
-        }
-
-        // --- INICIAR EL JUEGO ---
-        bucleJuego();
-
-    </script>
+    loop();
+</script>
 </body>
 </html>
