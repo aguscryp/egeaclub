@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>City Builder Pro | Diseños Reales</title>
+    <title>City Builder Pro | Constructor de Ciudad</title>
     <style>
-        :root { --pink: #ff007f; --cyan: #00d4ff; --dark-bg: #050505; --panel-bg: rgba(15, 15, 15, 0.98); }
-        body { margin: 0; display: flex; background: var(--dark-bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        :root { --pink: #ff007f; --cyan: #00d4ff; }
+        body { margin: 0; display: flex; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
         
-        /* UI LATERAL */
+        /* Panel Lateral */
         #sidebar { 
-            width: 340px; height: 100vh; background: var(--panel-bg); 
+            width: 320px; height: 100vh; background: rgba(15,15,15,0.98); 
             border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box; 
             z-index: 10; display: flex; flex-direction: column; box-shadow: 10px 0 30px rgba(0,0,0,0.5);
         }
@@ -20,68 +20,66 @@
 
         select { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; cursor: pointer; font-size: 12px; }
         
-        .btn-main { background: var(--pink); color: white; border: none; padding: 14px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; box-shadow: 0 0 10px rgba(255,0,127,0.2); }
-        .btn-main:hover { box-shadow: 0 0 20px rgba(255,0,127,0.5); transform: translateY(-1px); }
+        .btn-main { background: var(--pink); color: white; border: none; padding: 14px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 5px; transition: 0.2s; }
+        .btn-main:hover { background: #ff3399; transform: translateY(-1px); }
         
         .btn-del { background: #331111; color: #ff5555; border: 1px solid #552222; margin-top: 10px; padding: 10px; width: 100%; cursor: pointer; border-radius: 5px; font-size: 11px; text-transform: uppercase; }
-        .btn-del:hover { background: #ff0000; color: white; border-color: #ff0000; }
+        .btn-del:hover { background: #ff0000; color: white; }
 
-        /* ZONA DE VISUALIZACIÓN */
+        /* Pantalla de Juego */
         #view { flex: 1; height: 100vh; position: relative; }
-        .mode-indicator { position: absolute; top: 20px; left: 20px; padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(0,0,0,0.8); border: 1px solid var(--pink); pointer-events: none; font-size: 12px; letter-spacing: 1px; }
+        .mode-indicator { position: absolute; top: 20px; left: 20px; padding: 10px 20px; border-radius: 20px; font-weight: bold; background: rgba(0,0,0,0.8); border: 1px solid var(--pink); pointer-events: none; font-size: 12px; }
         
-        .hint-box { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; font-size: 11px; border-radius: 8px; color: #aaa; border: 1px solid #333; line-height: 1.6; }
-        .hint-box b { color: var(--cyan); }
+        .hint-box { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; font-size: 11px; border-radius: 8px; color: #aaa; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h1>City Architect PRO</h1>
+        <h1>Constructor Global</h1>
 
         <div class="section">
-            <label>Catálogo de Estructuras Realistas</label>
+            <label>Catálogo de Estructuras</label>
             <select id="objSelect">
-                <optgroup label="Infraestructura Global">
-                    <option value="calle_completa">Avenida con Veredas</option>
-                    <option value="cruce_t">Cruce en T</option>
+                <optgroup label="Infraestructura">
+                    <option value="calle">Avenida con Veredas</option>
                 </optgroup>
-                <optgroup label="Edificios Públicos">
-                    <option value="hospital">Hospital Municipal (Detallado)</option>
-                    <option value="banco">Banco Central (Clásico)</option>
+                <optgroup label="Edificios">
+                    <option value="hospital">Hospital Municipal</option>
+                    <option value="banco">Banco Central</option>
+                    <option value="casa">Casa Familiar (NPC)</option>
+                    <option value="concesionaria">Concesionaria Autos</option>
                 </optgroup>
-                <optgroup label="Comercios & Industria">
-                    <option value="concesionaria">Concesionaria SW4 (Cristal)</option>
-                    <option value="tienda_neon">Tienda Tech Neón</option>
-                </optgroup>
-                <optgroup label="Equipamiento Urbano">
-                    <option value="poste_luz">Poste Luz Neón</option>
-                    <option value="arbol">Pino Estilizado</option>
+                <optgroup label="Vehículos">
+                    <option value="auto_sedan">VW Vento / Bora</option>
+                    <option value="camioneta">Toyota Hilux / SW4</option>
+                    <option value="camion">Camión de Trabajo</option>
                 </optgroup>
             </select>
-            <button class="btn-main" onclick="enterBuildMode()">👷 Instalar Nuevo</button>
+            <button class="btn-main" onclick="enterBuildMode()">👷 Nuevo Objeto</button>
         </div>
 
         <div class="section">
-            <label>Estado de Selección</label>
-            <div id="status" style="color: var(--cyan); font-weight: bold; font-size: 14px; margin: 5px 0;">Vista Global</div>
-            <button class="btn-del" onclick="deleteActive()">🗑️ Eliminar Seleccionado</button>
+            <label>Selección</label>
+            <div id="status" style="color: var(--cyan); font-weight: bold; font-size: 14px; margin: 5px 0;">Nada seleccionado</div>
+            <button class="btn-del" onclick="deleteActive()">🗑️ Eliminar Objeto</button>
         </div>
 
-        <button class="btn-main" style="background: var(--cyan); margin-top: auto; color: #000;" onclick="saveWorld()">💾 PUBLICAR CIUDAD</button>
+        <button class="btn-main" style="background: var(--cyan); color: #000; margin-top: auto;" onclick="saveWorld()">💾 PUBLICAR CIUDAD</button>
     </div>
 
     <div id="view">
-        <div id="mode-text" class="mode-indicator">MODO: VISTA GLOBAL</div>
+        <div id="mode-text" class="mode-indicator">MODO: VISTA</div>
         <div class="hint-box">
-            <b>CLICK IZQ:</b> Colocar Estructura / Seleccionar existente<br>
-            <b>CLICK DER:</b> Cancelar Construcción / Orbitar Cámara<br>
-            <b>TECLA R:</b> Rotar 90° (antes de colocar)
+            <b>Click Izq:</b> Poner / Seleccionar<br>
+            <b>Click Der:</b> Cancelar / Orbitar<br>
+            <b>Tecla R:</b> Rotar Estructura
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
         let scene, camera, renderer, controls, raycaster, mouse;
@@ -89,44 +87,25 @@
         let ghostObject = null;
         let isBuilding = false;
         let selectedEntity = null;
-
-        // --- MATERIALES GLOBALES ---
-        const MATS = {
-            asfalto: new THREE.MeshStandardMaterial({color: 0x111111}),
-            vereda: new THREE.MeshStandardMaterial({color: 0x999999}),
-            lineaAmarilla: new THREE.MeshStandardMaterial({color: 0xffcc00}),
-            paredHospital: new THREE.MeshStandardMaterial({color: 0xffffff}),
-            rojoCruz: new THREE.MeshStandardMaterial({color: 0xff0000}),
-            cristal: new THREE.MeshStandardMaterial({color: 0x00aaff, transparent: true, opacity: 0.2, side: THREE.DoubleSide}),
-            concretoBanco: new THREE.MeshStandardMaterial({color: 0x7f8c8d}),
-            madera: new THREE.MeshStandardMaterial({color: 0x5d4037}),
-            hojas: new THREE.MeshStandardMaterial({color: 0x2e7d32}),
-            neonPink: new THREE.MeshStandardMaterial({color: 0x000000, emissive: 0xff007f, emissiveIntensity: 2})
-        };
+        const loader = new THREE.GLTFLoader();
 
         function init() {
             const container = document.getElementById('view');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050505);
+            scene.background = new THREE.Color(0x0a0a0a);
 
-            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 4000);
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 1, 5000);
             camera.position.set(100, 100, 100);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-
-            // Iluminación Realista
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(150, 250, 100);
-            sun.castShadow = true; // Preparado para sombras
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const sun = new THREE.DirectionalLight(0xffffff, 1);
+            sun.position.set(150, 300, 100);
             scene.add(sun);
 
-            // Suelo de referencia y plano de colisión
             const grid = new THREE.GridHelper(2000, 100, 0x222222, 0x111111);
             scene.add(grid);
 
@@ -136,10 +115,11 @@
             plane.name = "GROUND";
             scene.add(plane);
 
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            
-            // Eventos
+
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('mousedown', onMouseClick);
             window.addEventListener('keydown', (e) => { if(e.key.toLowerCase() === 'r') rotateGhost(); });
@@ -147,137 +127,62 @@
             animate();
         }
 
-        // =========================================================
-        // --- FÁBRICA DE MODELOS DETALLADOS (COMPUESTOS) ---
-        // =========================================================
-        function createDetailedModel(type) {
+        // ==========================================
+        // DISEÑO DE ESTRUCTURAS REALISTAS
+        // ==========================================
+        function createEntity(type, isGhost = false) {
             const group = new THREE.Group();
-            group.userData = { type: type };
+            group.userData = { type: type, id: THREE.MathUtils.generateUUID() };
 
-            // Usamos clones de materiales para el highlight
-            const getMat = (matName) => MATS[matName].clone();
+            const opacity = isGhost ? 0.5 : 1;
+            const mat = (col) => new THREE.MeshStandardMaterial({color: col, transparent: isGhost, opacity: opacity});
 
             switch(type) {
-                // 🛣️ INFRAESTRUCTURA
-                case 'calle_completa': {
-                    // Asfalto central (20x20)
-                    const asf = new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 20), getMat('asfalto'));
-                    // Veredas laterales (5x20 cada una)
-                    const verIzq = new THREE.Mesh(new THREE.BoxGeometry(5, 0.3, 20), getMat('vereda')); verIzq.position.set(-12.5, 0.05, 0);
-                    const verDer = new THREE.Mesh(new THREE.BoxGeometry(5, 0.3, 20), getMat('vereda')); verDer.position.set(12.5, 0.05, 0);
-                    // Línea amarilla central
-                    const linea = new THREE.Mesh(new THREE.PlaneGeometry(1, 20), getMat('lineaAmarilla')); linea.rotation.x = -Math.PI/2; linea.position.y = 0.11;
-                    group.add(asf, verIzq, verDer, linea);
+                case 'hospital':
+                    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(40, 20, 30), mat(0xeeeeee)); cuerpo.position.y = 10;
+                    const cruz = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 0.5), mat(0xff0000)); cruz.position.set(0, 15, 15.1);
+                    const cruzV = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 0.5), mat(0xff0000)); cruzV.position.set(0, 15, 15.1);
+                    const helipuerto = new THREE.Mesh(new THREE.CylinderGeometry(8, 8, 0.5), mat(0x333333)); helipuerto.position.y = 20.2;
+                    group.add(cuerpo, cruz, cruzV, helipuerto);
                     break;
-                }
 
-                // 🏥 HOSPITAL MUNICIPAL
-                case 'hospital': {
-                    const hGroup = new THREE.Group();
-                    // Cuerpo Principal (Blanco)
-                    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(40, 16, 25), getMat('paredHospital')); cuerpo.position.y = 8;
-                    // Ala de Emergencias (Más baja)
-                    const ala = new THREE.Mesh(new THREE.BoxGeometry(15, 10, 20), getMat('paredHospital')); ala.position.set(27.5, 5, 0);
-                    // Techo técnico (Gris oscuro)
-                    const techo = new THREE.Mesh(new THREE.BoxGeometry(38, 1, 23), getMat('asfalto')); techo.position.y = 16.5;
-                    
-                    // Detalles: Cruz Roja (Frente)
-                    const cruzH = new THREE.Mesh(new THREE.BoxGeometry(6, 1.5, 0.5), getMat('rojoCruz')); cruzH.position.set(0, 12, 12.6);
-                    const cruzV = new THREE.Mesh(new THREE.BoxGeometry(1.5, 6, 0.5), getMat('rojoCruz')); cruzV.position.set(0, 12, 12.6);
-                    
-                    // Detalles: Ventanas simuladas (Filas azules)
-                    for(let i=0; i<3; i++) { // Filas
-                        for(let j=0; j<5; j++) { // Columnas
-                            const win = new THREE.Mesh(new THREE.PlaneGeometry(3, 2), getMat('cristal'));
-                            win.position.set(-15 + (j*7.5), 4 + (i*4), 12.6);
-                            hGroup.add(win);
-                        }
-                    }
-                    hGroup.add(cuerpo, ala, techo, cruzH, cruzV);
-                    group.add(hGroup);
+                case 'casa':
+                    const pared = new THREE.Mesh(new THREE.BoxGeometry(15, 8, 12), mat(0xd2b48c)); pared.position.y = 4;
+                    const techo = new THREE.Mesh(new THREE.BoxGeometry(16, 2, 13), mat(0x8b4513)); techo.position.y = 9;
+                    const jardin = new THREE.Mesh(new THREE.BoxGeometry(15, 0.2, 5), mat(0x228b22)); jardin.position.set(0, 0, 8.5);
+                    group.add(pared, techo, jardin);
                     break;
-                }
 
-                // 🏢 BANCO CENTRAL
-                case 'banco': {
-                    // Base escalonada (Podio)
-                    const base = new THREE.Mesh(new THREE.BoxGeometry(35, 2, 35), getMat('vereda')); base.position.y = 1;
-                    // Cuerpo clásico (Piedra/Concreto)
-                    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(30, 18, 30), getMat('concretoBanco')); cuerpo.position.y = 11;
-                    // Columnas frontales (4 columnas)
-                    for(let i=0; i<4; i++) {
-                        const col = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 18), getMat('vereda'));
-                        col.position.set(-10.5 + (i*7), 11, 16);
-                        group.add(col);
-                    }
-                    // Frontón triangular arriba
-                    const frontonGeo = new THREE.ConeGeometry(16, 5, 4); frontonGeo.rotateY(Math.PI/4);
-                    const fronton = new THREE.Mesh(frontonGeo, getMat('vereda')); fronton.position.set(0, 22.5, 15); fronton.scale.z = 0.1;
-                    
-                    group.add(base, cuerpo, fronton);
+                case 'calle':
+                    const asf = new THREE.Mesh(new THREE.BoxGeometry(40, 0.2, 40), mat(0x111111));
+                    const vereda1 = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, 40), mat(0x888888)); vereda1.position.x = -22.5;
+                    const vereda2 = vereda1.clone(); vereda2.position.x = 22.5;
+                    const linea = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 40), mat(0xffcc00)); linea.position.y = 0.15;
+                    group.add(asf, vereda1, vereda2, linea);
                     break;
-                }
 
-                // 🚘 CONCESIONARIA SW4
-                case 'concesionaria': {
-                    // Suelo brillante/limpio
-                    const suelo = new THREE.Mesh(new THREE.BoxGeometry(40, 0.4, 40), new THREE.MeshStandardMaterial({color: 0xffffff, roughness: 0.1}));
-                    // Estructura de vigas negras
-                    const vigaM = getMat('asfalto');
-                    const p1 = new THREE.Mesh(new THREE.BoxGeometry(1, 10, 1), vigaM); p1.position.set(-19.5, 5, 19.5);
-                    const p2 = p1.clone(); p2.position.x = 19.5;
-                    const p3 = p1.clone(); p3.position.z = -19.5;
-                    const p4 = p3.clone(); p4.position.x = 19.5;
-                    // Techo plano
-                    const techo = new THREE.Mesh(new THREE.BoxGeometry(40, 1, 40), vigaM); techo.position.y = 10.5;
-                    // Paredes de Cristal Total (Grandes ventanales)
-                    const vidMat = getMat('cristal');
-                    const vidF = new THREE.Mesh(new THREE.PlaneGeometry(38, 9), vidMat); vidF.position.set(0, 5, 19.4);
-                    const vidL = new THREE.Mesh(new THREE.PlaneGeometry(38, 9), vidMat); vidL.position.set(-19.4, 5, 0); vidL.rotation.y = Math.PI/2;
-                    const vidD = vidL.clone(); vidD.position.x = 19.4;
-                    // Cartel SW4 Neón
-                    const cartel = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 0.5), getMat('neonPink')); cartel.position.set(0, 12, 19.6);
-
-                    group.add(suelo, p1, p2, p3, p4, techo, vidF, vidL, vidD, cartel);
+                case 'auto_sedan':
+                case 'camioneta':
+                    // Aquí cargarás el .glb. Por ahora, un bloque con ruedas para posicionar
+                    const baseCar = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 9), mat(0x333333)); baseCar.position.y = 1.2;
+                    const cabina = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 4), mat(0x555555)); cabina.position.set(0, 3, -1);
+                    group.add(baseCar, cabina);
                     break;
-                }
-
-                // Default / Props
-                case 'poste_luz': {
-                    const palo = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 10), getMat('asfalto')); palo.position.y = 5;
-                    const brazo = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 3), getMat('asfalto')); brazo.position.set(0, 9.5, 1.5);
-                    const foco = new THREE.Mesh(new THREE.SphereGeometry(0.5), new THREE.MeshStandardMaterial({color: 0xffff00, emissive: 0xffff00, emissiveIntensity: 5})); foco.position.set(0, 9, 3);
-                    group.add(palo, brazo, foco);
-                    break;
-                }
             }
 
-            // Aplicar sombras a todos los hijos meshes
-            group.traverse(child => { if(child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
             return group;
         }
 
-        // =========================================================
-        // --- MOTOR DE CONSTRUCCIÓN Y MOUSE ---
-        // =========================================================
-
+        // ==========================================
+        // SISTEMA DE MOUSE Y CONSTRUCCIÓN
+        // ==========================================
         function enterBuildMode() {
             if(ghostObject) scene.remove(ghostObject);
             const type = document.getElementById('objSelect').value;
-            ghostObject = createDetailedModel(type);
-            
-            // Hacerlo semitransparente (Ghost)
-            ghostObject.traverse(child => {
-                if(child.isMesh) {
-                    child.material.transparent = true; child.material.opacity = 0.4;
-                    child.material.emissive.setHex(0x00ff00); // Tinte verde de construcción
-                }
-            });
-
+            ghostObject = createEntity(type, true);
             scene.add(ghostObject);
             isBuilding = true;
-            if(selectedEntity) deselectActive();
-            document.getElementById('mode-text').innerText = "MODO: CONSTRUYENDO (CLICK IZQ)";
+            document.getElementById('mode-text').innerText = "MODO: CONSTRUYENDO";
         }
 
         function onMouseMove(event) {
@@ -287,111 +192,65 @@
 
             if(isBuilding && ghostObject) {
                 raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(scene.children, true);
-                const ground = intersects.find(i => i.object.name === "GROUND");
+                const ground = raycaster.intersectObjects(scene.children).find(i => i.object.name === "GROUND");
                 if(ground) {
                     ghostObject.position.copy(ground.point);
-                    // Snap a la grilla (cada 2 unidades para precisión)
-                    ghostObject.position.x = Math.round(ghostObject.position.x / 2) * 2;
-                    ghostObject.position.z = Math.round(ghostObject.position.z / 2) * 2;
+                    // Snap para que queden alineados
+                    ghostObject.position.x = Math.round(ghostObject.position.x / 5) * 5;
+                    ghostObject.position.z = Math.round(ghostObject.position.z / 5) * 5;
                 }
             }
         }
 
         function onMouseClick(event) {
-            if(event.button === 2) { // Click derecho: Cancelar/Deseleccionar
-                if(isBuilding) cancelBuild();
-                else if(selectedEntity) deselectActive();
-                return;
-            }
-
-            raycaster.setFromCamera(mouse, camera);
-            // Solo intersectar objetos del mundo, no el suelo ni el ghost
-            const objectsToTest = worldEntities.map(ent => ent);
-            const intersects = raycaster.intersectObjects(scene.children, true);
+            if(event.button === 2) { cancelBuild(); return; }
 
             if(isBuilding) {
-                // Colocar objeto real
                 const type = document.getElementById('objSelect').value;
-                const newObj = createDetailedModel(type);
+                const newObj = createEntity(type, false);
                 newObj.position.copy(ghostObject.position);
                 newObj.rotation.copy(ghostObject.rotation);
                 scene.add(newObj);
                 worldEntities.push(newObj);
-                // Sonido o feedback visual aquí
             } else {
-                // Modo Selección
-                const clickedMesh = intersects.find(i => i.object.name !== "GROUND" && i.object.type === "Mesh");
-                
-                if(clickedMesh) {
-                    // Encontrar el Grupo padre (la entidad completa)
-                    let entityGroup = clickedMesh.object;
-                    while(entityGroup.parent && entityGroup.parent !== scene) {
-                        entityGroup = entityGroup.parent;
-                    }
-
-                    if(selectedEntity) deselectActive();
-                    selectedEntity = entityGroup;
-                    highlightEntity(selectedEntity, true);
-                    document.getElementById('status').innerText = "EDITANDO: " + selectedEntity.userData.type.toUpperCase();
-                } else {
-                    // Click en la nada
-                    if(selectedEntity) deselectActive();
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(worldEntities, true);
+                if(intersects.length > 0) {
+                    let obj = intersects[0].object;
+                    while(obj.parent && obj.parent !== scene) obj = obj.parent;
+                    if(selectedEntity) highlight(selectedEntity, false);
+                    selectedEntity = obj;
+                    highlight(selectedEntity, true);
+                    document.getElementById('status').innerText = "Seleccionado: " + obj.userData.type.toUpperCase();
                 }
             }
         }
 
-        function highlightEntity(entity, active) {
-            entity.traverse(child => {
-                if(child.isMesh) {
-                    // Usamos emissive para el highlight neón rosa
-                    child.material.emissive.setHex(active ? 0xff007f : 0x000000);
-                    child.material.emissiveIntensity = active ? 0.5 : 0;
-                }
-            });
+        function highlight(obj, active) {
+            obj.traverse(c => { if(c.isMesh) c.material.emissive.setHex(active ? 0xff007f : 0x000000); });
         }
 
-        function deselectActive() {
-            if(selectedEntity) highlightEntity(selectedEntity, false);
-            selectedEntity = null;
-            document.getElementById('status').innerText = "VISTA GLOBAL";
-        }
-
-        function rotateGhost() {
-            if(ghostObject) ghostObject.rotation.y += Math.PI / 2;
-        }
-
-        function cancelBuild() {
-            if(ghostObject) {
-                scene.remove(ghostObject);
-                ghostObject = null;
-                isBuilding = false;
-                document.getElementById('mode-text').innerText = "MODO: VISTA GLOBAL";
-            }
-        }
+        function rotateGhost() { if(ghostObject) ghostObject.rotation.y += Math.PI/2; }
+        function cancelBuild() { if(ghostObject) { scene.remove(ghostObject); ghostObject = null; isBuilding = false; document.getElementById('mode-text').innerText = "MODO: VISTA"; } }
 
         function deleteActive() {
             if(selectedEntity) {
                 scene.remove(selectedEntity);
-                worldEntities = worldEntities.filter(e => e !== selectedEntity);
-                deselectActive();
+                worldEntities = worldEntities.filter(e => e.userData.id !== selectedEntity.userData.id);
+                selectedEntity = null;
                 document.getElementById('status').innerText = "ELIMINADO";
             }
         }
 
         function saveWorld() {
-            const data = worldEntities.map(ent => ({
-                type: ent.userData.type,
-                pos: { x: ent.position.x, y: ent.position.y, z: ent.position.z },
-                rot: ent.rotation.y
-            }));
+            const data = worldEntities.map(e => ({ type: e.userData.type, pos: e.position, rot: e.rotation.y }));
             localStorage.setItem('ciudad_data', JSON.stringify(data));
-            alert("✅ Ciudad guardada con éxito (" + data.length + " estructuras).");
+            alert("✅ Ciudad Publicada!");
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            controls.enabled = !isBuilding; // Bloquear cámara si construyo
+            controls.enabled = !isBuilding;
             controls.update();
             renderer.render(scene, camera);
         }
