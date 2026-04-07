@@ -2,175 +2,155 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Elementor | Creador de Mundos</title>
+    <title>Elementor Pro | Agustín Engine</title>
     <style>
-        :root { --pink: #ff007f; --neon: #00d4ff; }
-        body { margin: 0; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
+        :root { --pink: #ff007f; --neon: #00d4ff; --dark: #0a0a0a; }
+        body { margin: 0; background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
         
-        /* Panel Lateral Izquierdo (Neon Flow) */
         #toolbar {
-            width: 280px; height: 100vh; background: rgba(15, 15, 15, 0.8);
-            backdrop-filter: blur(15px); border-right: 2px solid var(--pink);
-            padding: 25px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;
-            box-shadow: 10px 0 30px rgba(255, 0, 127, 0.1); z-index: 10;
+            width: 320px; height: 100vh; background: rgba(15, 15, 15, 0.95);
+            border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 15px; z-index: 10;
+            box-shadow: 10px 0 30px rgba(0,0,0,1);
         }
 
-        h2 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+        h2 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        
+        .category-label { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 10px; font-weight: bold; }
+        
+        .grid-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         
         .btn-obj {
-            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white; padding: 15px; border-radius: 8px; cursor: pointer;
-            transition: all 0.3s; text-align: left; font-size: 14px;
+            background: #151515; border: 1px solid #333; color: #ccc; padding: 10px;
+            border-radius: 5px; cursor: pointer; transition: 0.2s; font-size: 12px;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
         }
-        .btn-obj:hover { background: var(--pink); border-color: var(--pink); transform: translateX(5px); box-shadow: 0 0 15px var(--pink); }
-        
-        #btn-limpiar { margin-top: auto; background: #331111; color: #ff5555; border: 1px solid #ff5555; }
-        #btn-limpiar:hover { background: #ff5555; color: white; }
+        .btn-obj:hover { border-color: var(--pink); color: white; background: #202020; }
+        .btn-obj.active { background: var(--pink); color: white; border-color: var(--pink); box-shadow: 0 0 15px var(--pink); }
 
-        /* Area del Mapa */
-        #viewport { flex-grow: 1; position: relative; cursor: crosshair; }
-        #info-puntero {
-            position: absolute; bottom: 20px; left: 300px;
-            font-size: 12px; color: var(--neon); background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px;
-        }
+        #viewport { flex-grow: 1; position: relative; }
+        #info { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-family: monospace; border: 1px solid var(--neon); color: var(--neon); }
     </style>
 </head>
 <body>
 
     <div id="toolbar">
-        <h2>Elementor</h2>
-        <p style="font-size: 11px; color: #888;">Agregá objetos al mapa de Agustín</p>
+        <h2>ELEMENTOR PRO</h2>
         
-        <button class="btn-obj" onclick="setObjeto('calle')">🛣️ Agregar Calle (50x50)</button>
-        <button class="btn-obj" onclick="setObjeto('casa')">🏠 Agregar Casa</button>
-        <button class="btn-obj" onclick="setObjeto('animal')">🐕 Agregar Animal (Box)</button>
-        <button class="btn-obj" onclick="setObjeto('arbol')">🌳 Agregar Árbol</button>
+        <div class="category-label">Infraestructura</div>
+        <div class="grid-tools">
+            <button class="btn-obj active" onclick="select('calle', this)">🛣️ Calle</button>
+            <button class="btn-obj" onclick="select('casa', this)">🏠 Casa</button>
+            <button class="btn-obj" onclick="select('farola', this)">💡 Farola</button>
+        </div>
 
-        <button id="btn-limpiar" class="btn-obj" onclick="limpiarMundo()">🗑️ Borrar Todo el Mapa</button>
+        <div class="category-label">Naturaleza</div>
+        <div class="grid-tools">
+            <button class="btn-obj" onclick="select('pino', this)">🌲 Pino</button>
+            <button class="btn-obj" onclick="select('palmera', this)">🌴 Palmera</button>
+            <button class="btn-obj" onclick="select('vaca', this)">🐄 Vaca</button>
+        </div>
+
+        <div class="category-label">Vehículos y Tech</div>
+        <div class="grid-tools">
+            <button class="btn-obj" onclick="select('auto', this)">🚗 Auto</button>
+            <button class="btn-obj" onclick="select('camioneta', this)">🛻 SW4 Pro</button>
+            <button class="btn-obj" onclick="select('antena', this)">📡 Antena 5G</button>
+        </div>
+
+        <button onclick="borrarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:10px; cursor:pointer; border-radius:5px;">🗑️ Reset Mapa</button>
     </div>
 
     <div id="viewport">
-        <div id="info-puntero">X: 0 | Z: 0 (Click para colocar)</div>
+        <div id="info">OBJETO: CALLE | SNAP: 5m</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
-        let scene, camera, renderer, raycaster, mouse;
-        let selectedType = 'calle';
-        let grid;
+        let scene, camera, renderer, grid, selected = 'calle';
+        let mouse = new THREE.Vector2(), raycaster = new THREE.Raycaster();
 
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111111);
-            
-            camera = new THREE.PerspectiveCamera(50, (window.innerWidth - 280) / window.innerHeight, 0.1, 5000);
-            camera.position.set(200, 300, 200);
+            scene.background = new THREE.Color(0x050505);
+            camera = new THREE.PerspectiveCamera(50, (window.innerWidth-320)/window.innerHeight, 1, 5000);
+            camera.position.set(300, 400, 300);
             camera.lookAt(0,0,0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth - 280, window.innerHeight);
+            renderer.setSize(window.innerWidth-320, window.innerHeight);
             document.getElementById('viewport').appendChild(renderer.domElement);
 
-            const light = new THREE.DirectionalLight(0xffffff, 1);
-            light.position.set(50, 100, 50);
-            scene.add(light, new THREE.AmbientLight(0xffffff, 0.5));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const sun = new THREE.DirectionalLight(0xffffff, 1);
+            sun.position.set(100, 200, 100);
+            scene.add(sun);
 
-            // Grilla para posicionar
-            grid = new THREE.GridHelper(2000, 40, 0x333333, 0x222222);
+            grid = new THREE.GridHelper(2000, 50, 0x333333, 0x222222);
             scene.add(grid);
 
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
+            dibujarTodo();
 
-            // Cargar objetos existentes
-            dibujarObjetosGuardados();
+            window.addEventListener('mousedown', (e) => {
+                if(e.button !== 0) return;
+                raycaster.setFromCamera(mouse, camera);
+                const hits = raycaster.intersectObject(grid);
+                if(hits.length > 0) {
+                    const p = hits[0].point;
+                    const obj = { type: selected, x: Math.round(p.x/10)*10, z: Math.round(p.z/10)*10 };
+                    guardar(obj);
+                }
+            });
 
-            window.addEventListener('mousedown', onClick);
-            window.addEventListener('mousemove', onMove);
-            animate();
+            window.addEventListener('mousemove', (e) => {
+                const r = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+                mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+            });
+
+            render();
         }
 
-        function setObjeto(type) {
-            selectedType = type;
-            console.log("Seleccionado: " + type);
+        function select(t, btn) {
+            selected = t;
+            document.querySelectorAll('.btn-obj').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('info').innerText = `OBJETO: ${t.toUpperCase()}`;
         }
 
-        function onMove(e) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-            
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(grid);
-            if (intersects.length > 0) {
-                const pt = intersects[0].point;
-                document.getElementById('info-puntero').innerText = `X: ${Math.round(pt.x)} | Z: ${Math.round(pt.z)} | Objeto: ${selectedType}`;
-            }
+        function guardar(obj) {
+            let data = JSON.parse(localStorage.getItem('mapa_agustin')) || [];
+            data.push(obj);
+            localStorage.setItem('mapa_agustin', JSON.stringify(data));
+            crearMesh(obj);
         }
 
-        function onClick(e) {
-            if (e.button !== 0) return; // Solo click izquierdo
-            
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(grid);
-            
-            if (intersects.length > 0) {
-                const pt = intersects[0].point;
-                const nuevoObjeto = {
-                    type: selectedType,
-                    pos: { x: Math.round(pt.x / 5) * 5, z: Math.round(pt.z / 5) * 5 } // Snap a grilla
-                };
-
-                // Guardar en LocalStorage
-                const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-                data.push(nuevoObjeto);
-                localStorage.setItem('elementos_ciudad', JSON.stringify(data));
-
-                // Dibujar en el editor
-                dibujarObjeto(nuevoObjeto);
-            }
-        }
-
-        function dibujarObjeto(obj) {
-            let geo, mat;
-            if (obj.type === 'calle') {
-                geo = new THREE.BoxGeometry(50, 0.5, 50);
-                mat = new THREE.MeshStandardMaterial({ color: 0x222222 });
-            } else if (obj.type === 'casa') {
-                geo = new THREE.BoxGeometry(15, 15, 15);
-                mat = new THREE.MeshStandardMaterial({ color: 0xff007f });
-            } else {
-                geo = new THREE.BoxGeometry(5, 5, 5);
-                mat = new THREE.MeshStandardMaterial({ color: 0x00d4ff });
-            }
-            
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(obj.pos.x, geo.parameters.height/2, obj.pos.z);
+        function crearMesh(obj) {
+            let mesh;
+            // Visualización rápida en el editor
+            const geo = new THREE.BoxGeometry(10, (obj.type==='calle'?1:20), 10);
+            const mat = new THREE.MeshStandardMaterial({ color: obj.type==='calle'?0x333333:0xff007f });
+            mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(obj.x, geo.parameters.height/2, obj.z);
             scene.add(mesh);
         }
 
-        function dibujarObjetosGuardados() {
-            const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data.forEach(dibujarObjeto);
+        function dibujarTodo() {
+            let data = JSON.parse(localStorage.getItem('mapa_agustin')) || [];
+            data.forEach(crearMesh);
         }
 
-        function limpiarMundo() {
-            if(confirm("¿Seguro que querés borrar todo el mundo?")) {
-                localStorage.removeItem('elementos_ciudad');
+        function borrarTodo() {
+            if(confirm("¿Borrar el mundo?")) {
+                localStorage.removeItem('mapa_agustin');
                 location.reload();
             }
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            // Rotación suave de cámara para ver el mapa
-            camera.position.x = 400 * Math.sin(Date.now() * 0.0001);
-            camera.position.z = 400 * Math.cos(Date.now() * 0.0001);
-            camera.lookAt(0,0,0);
+        function render() {
+            requestAnimationFrame(render);
             renderer.render(scene, camera);
         }
-
         init();
     </script>
 </body>
