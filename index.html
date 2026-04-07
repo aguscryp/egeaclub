@@ -2,213 +2,38 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cowboy Drive - Realistic SW4 System</title>
+    <title>Cowboy OS - Login</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
-        #ui-top {
-            position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 12px;
-            backdrop-filter: blur(5px); z-index: 10; border: 1px solid #ff007f;
-        }
-        #prompt-e {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: #ff007f; font-size: 24px; font-weight: bold; text-shadow: 0 0 10px #000;
-            display: none; pointer-events: none; z-index: 20;
-        }
+        body { background: #0a0a0a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .login-card { background: rgba(20,20,20,0.9); padding: 40px; border-radius: 20px; border: 2px solid #ff007f; box-shadow: 0 0 20px #ff007f; text-align: center; }
+        input { background: #000; border: 1px solid #ff007f; color: #ff007f; padding: 10px; font-size: 24px; text-align: center; width: 120px; border-radius: 10px; outline: none; }
+        button { background: #ff007f; color: white; border: none; padding: 10px 25px; margin-top: 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .pink-text { color: #ff007f; text-shadow: 0 0 5px #ff007f; }
     </style>
 </head>
 <body>
+    <div class="login-card">
+        <h2 class="pink-text">COWBOY ENGINE</h2>
+        <p>Introduce tu código de 4 dígitos</p>
+        <input type="password" id="pin" maxlength="4" placeholder="****">
+        <br>
+        <button onclick="login()">INICIAR PARTIDA</button>
+    </div>
 
-<div id="ui-top">
-    <strong>COWBOY DRIVE v5.0</strong><br>
-    <small id="status">Estado: Caminando</small><br>
-    <small><b>WASD</b>: Mover | <b>E</b>: Subir/Bajar de la SW4</small>
-</div>
-
-<div id="prompt-e">Presiona [E] para conducir</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-
-<script>
-let scene, camera, renderer, controls, vaquero, sw4;
-let piernaIzq, piernaDer;
-let isDriving = false;
-const keys = {};
-const obstacles = [];
-
-const config = {
-    playerSpeed: 0.18,
-    carSpeed: 0,
-    carMaxSpeed: 0.6,
-    carAcceleration: 0.01,
-    carFriction: 0.96,
-    carRotation: 0.04,
-    walkCycle: 0
-};
-
-function init() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 8, 15);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    document.body.appendChild(renderer.domElement);
-
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-    sun.position.set(50, 100, 50);
-    sun.castShadow = true;
-    scene.add(sun);
-
-    crearTerreno();
-    crearVaquero();
-    cargarSW4Realista(10, 0, 5);
-
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.minDistance = 6;
-    controls.maxDistance = 30;
-
-    window.onkeydown = (e) => {
-        keys[e.code] = true;
-        if (e.code === 'KeyE') toggleDrive();
-    };
-    window.onkeyup = (e) => keys[e.code] = false;
-}
-
-function crearVaquero() {
-    vaquero = new THREE.Group();
-    const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-    const matRopa = new THREE.MeshStandardMaterial({ color: 0x795548 });
-    
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.7,0.7), matPiel);
-    head.position.y = 2.5;
-    
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), matRopa);
-    torso.position.y = 1.6;
-
-    piernaIzq = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 0.4), matRopa);
-    piernaIzq.position.set(-0.25, 0.5, 0);
-    piernaDer = piernaIzq.clone(); piernaDer.position.x = 0.25;
-
-    vaquero.add(head, torso, piernaIzq, piernaDer);
-    scene.add(vaquero);
-}
-
-function cargarSW4Realista(x, y, z) {
-    const loader = new THREE.GLTFLoader();
-    // Usamos el modelo de camioneta realista (Milk Truck para ejemplo visual, reemplazar con sw4.glb)
-    loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb', function(gltf) {
-        sw4 = gltf.scene;
-        sw4.position.set(x, y, z);
-        sw4.scale.set(2, 2, 2);
-        sw4.traverse(n => { if(n.isMesh) n.castShadow = true; });
-        scene.add(sw4);
-    });
-}
-
-function toggleDrive() {
-    if (!sw4) return;
-    
-    const dist = vaquero.position.distanceTo(sw4.position);
-    
-    if (!isDriving && dist < 5) {
-        // SUBIRSE
-        isDriving = true;
-        vaquero.visible = false;
-        document.getElementById('status').innerText = "Estado: Conduciendo SW4";
-        controls.minDistance = 12; // Cámara más alejada para el vehículo
-    } else if (isDriving) {
-        // BAJARSE
-        isDriving = false;
-        vaquero.visible = true;
-        // Posicionar vaquero al lado de la puerta
-        vaquero.position.copy(sw4.position).add(new THREE.Vector3(4, 0, 0));
-        document.getElementById('status').innerText = "Estado: Caminando";
-        controls.minDistance = 6;
-    }
-}
-
-function update() {
-    const prevPos = isDriving ? sw4.position.clone() : vaquero.position.clone();
-
-    if (!isDriving) {
-        // LÓGICA A PIE
-        let moveX = 0, moveZ = 0;
-        if (keys['KeyW']) moveZ -= 1;
-        if (keys['KeyS']) moveZ += 1;
-        if (keys['KeyA']) moveX -= 1;
-        if (keys['KeyD']) moveX += 1;
-
-        if (moveX !== 0 || moveZ !== 0) {
-            const angle = Math.atan2(camera.position.x - vaquero.position.x, camera.position.z - vaquero.position.z);
-            const moveDir = new THREE.Vector3(moveX, 0, moveZ).applyAxisAngle(new THREE.Vector3(0, 1, 0), angle).normalize();
+    <script>
+        function login() {
+            const pin = document.getElementById('pin').value;
+            let user = "";
+            if(pin === "1234") user = "Agustín Owner";
+            else if(pin === "4321") user = "Damian Escobar";
             
-            vaquero.rotation.y = THREE.MathUtils.lerp(vaquero.rotation.y, Math.atan2(moveDir.x, moveDir.z), 0.15);
-            vaquero.position.add(moveDir.multiplyScalar(config.playerSpeed));
-
-            // Animación
-            config.walkCycle += 0.2;
-            piernaIzq.rotation.x = Math.sin(config.walkCycle) * 0.5;
-            piernaDer.rotation.x = -Math.sin(config.walkCycle) * 0.5;
+            if(user !== "") {
+                localStorage.setItem('currentUser', user);
+                window.location.href = "perfil.html"; // Siguiente paso
+            } else {
+                alert("Código incorrecto");
+            }
         }
-
-        // Mostrar prompt si está cerca de la SW4
-        if (sw4) {
-            const dist = vaquero.position.distanceTo(sw4.position);
-            document.getElementById('prompt-e').style.display = (dist < 5) ? 'block' : 'none';
-        }
-    } else {
-        // LÓGICA DE CONDUCCIÓN (SW4)
-        document.getElementById('prompt-e').style.display = 'none';
-
-        if (keys['KeyW']) config.carSpeed = Math.min(config.carSpeed + config.carAcceleration, config.carMaxSpeed);
-        if (keys['KeyS']) config.carSpeed = Math.max(config.carSpeed - config.carAcceleration, -config.carMaxSpeed / 2);
-        
-        // Rotación solo si se está moviendo
-        if (Math.abs(config.carSpeed) > 0.01) {
-            const direction = config.carSpeed > 0 ? 1 : -1;
-            if (keys['KeyA']) sw4.rotation.y += config.carRotation * direction;
-            if (keys['KeyD']) sw4.rotation.y -= config.carRotation * direction;
-        }
-
-        // Aplicar movimiento
-        sw4.translateZ(config.carSpeed);
-        
-        // Fricción (desaceleración natural)
-        config.carSpeed *= config.carFriction;
-    }
-
-    // CÁMARA SIGUE AL OBJETIVO ACTUAL (Vaquero o SW4)
-    const target = isDriving ? sw4 : vaquero;
-    const delta = target.position.clone().sub(prevPos);
-    camera.position.add(delta);
-    controls.target.copy(target.position);
-    controls.update();
-}
-
-function crearTerreno() {
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshStandardMaterial({color: 0x4caf50}));
-    ground.rotation.x = -Math.PI/2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-    update();
-    renderer.render(scene, camera);
-}
-
-init();
-animate();
-</script>
+    </script>
 </body>
 </html>
