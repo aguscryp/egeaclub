@@ -2,37 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Libre | Agustín Pro</title>
+    <title>City Play | Agustín Pro</title>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-        /* Interfaz del Jugador */
+        
+        /* HUD del Jugador (Datos de Perfil) */
         #hud {
-            position: absolute; top: 20px; left: 20px;
-            padding: 15px; background: rgba(0,0,0,0.8);
-            border-left: 4px solid #ff007f; color: white; z-index: 100;
+            position: absolute; top: 20px; left: 20px; padding: 20px;
+            background: rgba(0,0,0,0.85); border-left: 5px solid #ff007f;
+            border-radius: 0 15px 15px 0; color: white; z-index: 100;
+            box-shadow: 0 0 20px rgba(255, 0, 127, 0.2);
         }
-        .instrucciones { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); color: #ff007f; font-size: 12px; letter-spacing: 1px; }
+        #nombre-player { font-weight: bold; font-size: 18px; letter-spacing: 2px; color: #ff007f; }
+        #stats-player { font-size: 12px; color: #00d4ff; margin-top: 5px; text-transform: uppercase; }
+
+        .controles {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 0, 127, 0.1); padding: 10px 30px;
+            border: 1px solid #ff007f; border-radius: 50px;
+            color: white; font-size: 11px; letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
     <div id="hud">
-        <div style="font-weight: bold; font-size: 18px;">EXPLORADOR 3D</div>
-        <div id="info-personaje" style="color: #00d4ff; font-size: 12px;">Cargando perfil...</div>
+        <div id="nombre-player">CARGANDO...</div>
+        <div id="stats-player">AVATAR CONECTADO</div>
     </div>
 
-    <div class="instrucciones">USA EL MOUSE PARA EXPLORAR LA CIUDAD</div>
+    <div class="controles">CAMINAR: <b>W A S D</b> | CORRER: <b>SHIFT</b> | GIRAR: <b>MOUSE</b></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <script>
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer, clock, player;
+        let keys = {};
         const loader = new THREE.GLTFLoader();
-        let estructurasCargadas = [];
 
-        // 1. ASSETS REALISTAS (Deben ser iguales a los de construccion.html)
+        // 1. ASSETS PARA CARGAR LO QUE CONSTRUISTE
         const ASSETS = {
             'casa': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/SheenChair.glb',
             'edificio': 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/Buildings.glb',
@@ -44,90 +53,110 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020202);
             scene.fog = new THREE.FogExp2(0x020202, 0.002);
+            clock = new THREE.Clock();
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 15000);
-            camera.position.set(300, 200, 300);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            // Iluminación
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(500, 1000, 250);
+            // Iluminación Neon Pro
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const sun = new THREE.DirectionalLight(0xffffff, 1);
+            sun.position.set(100, 500, 100);
             scene.add(sun);
 
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
+            // Suelo y Grilla
+            scene.add(new THREE.GridHelper(5000, 100, 0x111111, 0x222222));
 
-            // CARGAR TODO
-            cargarPersonaje(); // Trae lo de perfil.html
-            sincronizarConstruccion(); // Trae lo de construccion.html
+            // --- PASO A: CARGAR EL PERSONAJE (De Perfil.html) ---
+            crearJugador();
+
+            // --- PASO B: CARGAR LA CIUDAD (De Construccion.html) ---
+            cargarCiudadConstruida();
+
+            // Eventos teclado
+            window.addEventListener('keydown', e => keys[e.code] = true);
+            window.addEventListener('keyup', e => keys[e.code] = false);
 
             animate();
         }
 
-        // Recupera los datos del personaje de perfil.html
-        function cargarPersonaje() {
-            const p = localStorage.getItem('usuario_perfil'); // Ajustá el nombre si usaste otro
-            if(p) {
-                const data = JSON.parse(p);
-                document.getElementById('info-personaje').innerText = `Jugador: ${data.nombre || 'Agustín'}`;
-            }
+        function crearJugador() {
+            // Leemos lo que guardaste en Perfil
+            const perfil = JSON.parse(localStorage.getItem('perfil_jugador')) || { nombre: 'Agustín', color: 0xff007f };
+            
+            document.getElementById('nombre-player').innerText = perfil.nombre.toUpperCase();
+
+            // Creamos el Avatar físico
+            const geo = new THREE.CapsuleGeometry(1.5, 3.5, 4, 8);
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: perfil.color || 0xff007f, 
+                emissive: perfil.color || 0xff007f,
+                emissiveIntensity: 0.2 
+            });
+            player = new THREE.Mesh(geo, mat);
+            player.position.set(0, 4, 0);
+            scene.add(player);
         }
 
-        // LEE LA BASE DE DATOS QUE LLENASTE EN CONSTRUCCION.HTML
-        async function sincronizarConstruccion() {
-            const data = localStorage.getItem('ciudad_db'); // Esta es la "llave" mágica
+        async function cargarCiudadConstruida() {
+            const data = localStorage.getItem('ciudad_db') || localStorage.getItem('mi_ciudad_viva');
             if(!data) return;
 
             const objetos = JSON.parse(data);
-            for(let item of objetos) {
-                await colocarEnMapa(item);
-            }
-        }
-
-        function colocarEnMapa(item) {
-            return new Promise((resolve) => {
+            objetos.forEach(item => {
                 if(item.type === 'calle') {
-                    // Genera la calle por código para que sea rápida
-                    const g = new THREE.Group();
-                    const m = new THREE.Mesh(new THREE.BoxGeometry(40, 0.4, 40), new THREE.MeshStandardMaterial({color: 0x111111}));
-                    g.add(m); g.position.set(item.pos.x, item.pos.y, item.pos.z);
-                    g.rotation.y = item.rot;
-                    scene.add(g);
-                    resolve();
+                    const calle = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 40), new THREE.MeshStandardMaterial({color: 0x111111}));
+                    calle.position.set(item.pos.x, 0, item.pos.z);
+                    scene.add(calle);
                 } else {
-                    // Carga el modelo 3D real (Chery, Casa, etc)
                     loader.load(ASSETS[item.type], (gltf) => {
                         const m = gltf.scene;
-                        m.position.set(item.pos.x, item.pos.y, item.pos.z);
+                        m.position.set(item.pos.x, 0, item.pos.z);
                         m.rotation.y = item.rot;
                         
-                        // Escalas automáticas para que no se vean gigantes
+                        // Ajuste de Escalas
                         if(item.type === 'chery') m.scale.set(12, 12, 12);
                         if(item.type === 'edificio') m.scale.set(40, 40, 40);
-
+                        
                         scene.add(m);
-                        resolve();
-                    }, undefined, () => resolve());
+                    });
                 }
             });
         }
 
+        function update() {
+            const delta = clock.getDelta();
+            let moveSpeed = (keys['ShiftLeft'] ? 80 : 40) * delta;
+            const rotateSpeed = 2.5 * delta;
+
+            if(player) {
+                // Rotación A/D
+                if(keys['KeyA']) player.rotation.y += rotateSpeed;
+                if(keys['KeyD']) player.rotation.y -= rotateSpeed;
+
+                // Movimiento W/S
+                if(keys['KeyW']) player.translateZ(moveSpeed);
+                if(keys['KeyS']) player.translateZ(-moveSpeed);
+
+                // CÁMARA 3RA PERSONA DINÁMICA
+                const offset = new THREE.Vector3(0, 12, -25); // Posición atrás y arriba
+                const worldOffset = offset.applyMatrix4(player.matrixWorld);
+                camera.position.lerp(worldOffset, 0.1); // Suavizado de cámara
+                camera.lookAt(player.position.x, player.position.y + 5, player.position.z);
+            }
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
+            update();
             renderer.render(scene, camera);
         }
 
         window.onload = init;
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
