@@ -1,101 +1,121 @@
+/**
+ * MOTOR DE ANIMACIÓN DE PERSONAJE - COWBOY ENGINE
+ */
+
 let scene, camera, renderer, controls, vaquero;
+let piernaIzq, piernaDer, brazoIzquierdo, brazoDerecho;
 const keys = {};
 
-// CONFIGURACIÓN DE COLOR (Con seguro por si localStorage falla)
-let playerColor = "#ff007f"; 
-try {
-    const config = JSON.parse(localStorage.getItem('playerConfig'));
-    if (config && config.color) playerColor = config.color;
-} catch (e) {
-    console.log("Usando color por defecto");
-}
+// 1. OBTENER COLOR DE PERFIL
+const playerConfig = JSON.parse(localStorage.getItem('playerConfig')) || { color: '#ff007f' };
 
 function initGame() {
-    console.log("Iniciando motor 3D...");
-
-    // 1. ESCENA
+    // Escena básica
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB); // Azul Cielo
+    scene.background = new THREE.Color(0x87CEEB);
 
-    // 2. CÁMARA
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 10, 20);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 8, 15);
 
-    // 3. RENDERER (El dibujo)
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // 4. LUCES (Si esto falta, se ve negro)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
-
+    // Luces
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const sun = new THREE.DirectionalLight(0xffffff, 1.0);
-    sun.position.set(50, 100, 50);
-    sun.castShadow = true;
+    sun.position.set(10, 20, 10);
     scene.add(sun);
 
-    // 5. SUELO (El Pasto)
-    const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x4caf50 }); // Verde
-    const ground = new THREE.Mesh(groundGeo, groundMat);
+    // Suelo (Pasto)
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(1000, 1000), 
+        new THREE.MeshStandardMaterial({color: 0x4caf50})
+    );
     ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
     scene.add(ground);
 
-    // 6. DECORACIÓN (Casa)
-    crearCasa(-15, 0, -15);
-
-    // 7. VAQUERO
+    // --- CONSTRUCCIÓN DEL PERSONAJE ARTICULADO ---
     vaquero = new THREE.Group();
-    const matRopa = new THREE.MeshStandardMaterial({ color: playerColor });
-    const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-    
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.3, 0.6), matRopa);
-    torso.position.y = 1.65;
-    
-    const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), matPiel);
-    cabeza.position.y = 2.6;
+    const matRopa = new THREE.MeshStandardMaterial({color: playerConfig.color});
+    const matPiel = new THREE.MeshStandardMaterial({color: 0xffe0bd});
 
-    vaquero.add(torso, cabeza);
+    // Torso
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matRopa);
+    torso.position.y = 1.6;
+    vaquero.add(torso);
+
+    // Cabeza
+    const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
+    cabeza.position.y = 2.5;
+    vaquero.add(cabeza);
+
+    // Piernas (Separadas para animar)
+    const geoExtremidad = new THREE.BoxGeometry(0.3, 0.9, 0.3);
+    piernaIzq = new THREE.Mesh(geoExtremidad, matRopa);
+    piernaIzq.position.set(-0.2, 0.5, 0);
+    
+    piernaDer = new THREE.Mesh(geoExtremidad, matRopa);
+    piernaDer.position.set(0.2, 0.5, 0);
+
+    // Brazos (Separados para animar)
+    brazoIzquierdo = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), matPiel);
+    brazoIzquierdo.position.set(-0.55, 1.6, 0);
+    
+    brazoDerecho = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), matPiel);
+    brazoDerecho.position.set(0.55, 1.6, 0);
+
+    vaquero.add(piernaIzq, piernaDer, brazoIzquierdo, brazoDerecho);
     scene.add(vaquero);
 
-    // 8. CONTROLES
+    // Controles
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    window.onkeydown = (e) => { keys[e.code] = true; };
-    window.onkeyup = (e) => { keys[e.code] = false; };
+    window.onkeydown = (e) => keys[e.code] = true;
+    window.onkeyup = (e) => keys[e.code] = false;
 
     animate();
-}
-
-function crearCasa(x, y, z) {
-    const casa = new THREE.Group();
-    const walls = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), new THREE.MeshStandardMaterial({color: 0x5d4037}));
-    walls.position.y = 2.5;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(7, 4, 4), new THREE.MeshStandardMaterial({color: 0x3e2723}));
-    roof.position.y = 6.5; roof.rotation.y = Math.PI/4;
-    casa.add(walls, roof);
-    casa.position.set(x, y, z);
-    scene.add(casa);
 }
 
 function animate() {
     requestAnimationFrame(animate);
     
-    if(vaquero) {
-        const speed = 0.2;
-        if(keys['KeyW']) vaquero.translateZ(speed);
-        if(keys['KeyS']) vaquero.translateZ(-speed);
-        if(keys['KeyA']) vaquero.rotation.y += 0.05;
-        if(keys['KeyD']) vaquero.rotation.y -= 0.05;
+    let isMoving = false;
+    const speed = 0.2;
 
-        // Cámara suave
-        const relativeOffset = new THREE.Vector3(0, 6, 12);
-        const camOffset = relativeOffset.applyMatrix4(vaquero.matrixWorld);
-        camera.position.lerp(camOffset, 0.1);
+    if(vaquero) {
+        // Movimiento WASD
+        if(keys['KeyW']) { vaquero.translateZ(speed); isMoving = true; }
+        if(keys['KeyS']) { vaquero.translateZ(-speed); isMoving = true; }
+        if(keys['KeyA']) { vaquero.rotation.y += 0.05; isMoving = true; }
+        if(keys['KeyD']) { vaquero.rotation.y -= 0.05; isMoving = true; }
+
+        // --- LÓGICA DE ANIMACIÓN DE EXTREMIDADES ---
+        if (isMoving) {
+            const time = Date.now() * 0.01; // Velocidad del paso
+            const amplitude = 0.6; // Qué tanto estira la pierna
+
+            // Movimiento alternado (Pierna izquierda adelante, brazo derecho adelante)
+            piernaIzq.rotation.x = Math.sin(time) * amplitude;
+            piernaDer.rotation.x = -Math.sin(time) * amplitude;
+            
+            brazoIzquierdo.rotation.x = -Math.sin(time) * amplitude;
+            brazoDerecho.rotation.x = Math.sin(time) * amplitude;
+
+            // Balanceo leve del cuerpo
+            vaquero.position.y = Math.abs(Math.cos(time * 0.5)) * 0.1; 
+        } else {
+            // Volver a posición de reposo suavemente
+            piernaIzq.rotation.x = 0;
+            piernaDer.rotation.x = 0;
+            brazoIzquierdo.rotation.x = 0;
+            brazoDerecho.rotation.x = 0;
+            vaquero.position.y = 0;
+        }
+
+        // Cámara sigue al personaje
+        const camPos = new THREE.Vector3(0, 6, 12).applyMatrix4(vaquero.matrixWorld);
+        camera.position.lerp(camPos, 0.1);
         controls.target.lerp(vaquero.position, 0.1);
     }
 
@@ -103,9 +123,4 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Rescate por si la ventana cambia
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-});
+initGame();
