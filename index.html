@@ -2,161 +2,144 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Native 3D World - Three.js Edition</title>
+    <title>3D Cowboy Real Engine - WASD & Jump</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px;
+            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px;
             border: 1px solid rgba(255,255,255,0.2); pointer-events: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        b { color: #58ff58; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <strong>3D NATIVE WORLD</strong><br>
-    <small>Movimiento: <b>WASD</b> | Cámara: <b>Ratón (Click y Arrastra)</b></small>
+    <strong>COWBOY 3D REAL</strong><br>
+    <small><b>WASD</b>: Caminar | <b>ESPACIO</b>: Saltar<br>Usa el <b>Ratón</b> para orbitar la vista</small>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
 <script>
-// --- CONFIGURACIÓN BÁSICA DE THREE.JS ---
 let scene, camera, renderer, controls;
+let vaquero, suelo;
 const keys = {};
 
-// Configuración del Jugador
-const player = {
-    speed: 0.3,
-    rotSpeed: 0.02
+// Configuración de Físicas y Movimiento
+const config = {
+    speed: 0.15,
+    jumpForce: 0.25,
+    gravity: 0.01,
+    vY: 0,
+    isJumping: false,
+    walkCycle: 0
 };
 
 function init() {
-    // 1. ESCENA (El mundo 3D)
+    // 1. ESCENA Y CIELO
     scene = new THREE.Scene();
-    // Cielo Celeste Sólido
     scene.background = new THREE.Color(0x87CEEB); 
 
-    // 2. CÁMARA (Perspectiva Real)
+    // 2. CÁMARA
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 20); // Posición inicial de la cámara
+    camera.position.set(0, 10, 15);
 
-    // 3. RENDERIZADOR (El motor que dibuja)
-    renderer = new THREE.WebGLRenderer({ antialias: true }); // Antialias para bordes suaves
+    // 3. RENDERER
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true; // Activamos sombras reales
+    renderer.shadowMap.enabled = true; // Sombras activadas
     document.body.appendChild(renderer.domElement);
 
-    // 4. CONTROLES DE CÁMARA (OrbitControls)
-    // Permite rotar la cámara con el ratón alrededor de un punto
+    // 4. LUCES
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
+    sun.position.set(10, 20, 10);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    // 5. MAPA / TIERRA 3D
+    const groundGeo = new THREE.PlaneGeometry(200, 200);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x4caf50 });
+    suelo = new THREE.Mesh(groundGeo, groundMat);
+    suelo.rotation.x = -Math.PI / 2;
+    suelo.receiveShadow = true;
+    scene.add(suelo);
+
+    // Agregar algunos bloques decorativos (casas/obstáculos)
+    crearObstaculo(10, 5, -10);
+    crearObstaculo(-15, 5, -20);
+
+    // 6. CREAR VAQUERO
+    crearVaquero();
+
+    // 7. CONTROLES DE CÁMARA
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enablePan = false; // No permitir desplazar la cámara, solo rotar
-    controls.enableZoom = true; // Permitir zoom
+    controls.enableDamping = true; // Suavizado de cámara
     controls.minDistance = 5;
-    controls.maxDistance = 50;
+    controls.maxDistance = 30;
 
-    // 5. ILUMINACIÓN
-    // Luz Ambiental (ilumina todo un poco)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    scene.add(ambientLight);
-
-    // Luz Direccional (como el Sol, proyecta sombras)
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
-    sunLight.position.set(10, 20, 10);
-    sunLight.castShadow = true; // Proyecta sombras
-    // Configuración de calidad de sombra
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    scene.add(sunLight);
-
-    crearMundo();
-    crearPersonaje();
-    setupControls();
-
-    window.addEventListener('resize', onWindowResize, false);
+    // Eventos
+    window.addEventListener('keydown', (e) => keys[e.code] = true);
+    window.addEventListener('keyup', (e) => keys[e.code] = false);
+    window.addEventListener('resize', onWindowResize);
 }
 
-// --- CREACIÓN DE GEOMETRÍA (Objetos 3D) ---
-let groundMesh;
-function crearMundo() {
-    // 1. EL SUELO (Tierra/Espacio Verde 3D)
-    // Usamos una geometría de plano grande
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
-    // Material de color verde que reacciona a la luz
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4caf50 });
-    groundMesh = new THREE.Mesh(groundGeometry, groundMaterial);
-    
-    // En Three.js los planos son verticales por defecto, lo rotamos para que sea el suelo
-    groundMesh.rotation.x = -Math.PI / 2; 
-    groundMesh.receiveShadow = true; // El suelo recibe sombras
-    scene.add(groundMesh);
+function crearVaquero() {
+    vaquero = new THREE.Group();
 
-    // 2. Objetos de referencia (Árboles simples de bloques)
-    for (let i = 0; i < 10; i++) {
-        crearArbol(Math.random() * 80 - 40, Math.random() * 80 - 40);
-    }
-}
+    // Piernas (Marrones)
+    const legGeo = new THREE.BoxGeometry(0.4, 0.8, 0.4);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+    const pI = new THREE.Mesh(legGeo, legMat);
+    pI.position.set(-0.3, 0.4, 0);
+    pI.castShadow = true;
+    const pD = pI.clone();
+    pD.position.x = 0.3;
+    vaquero.add(pI, pD);
 
-function crearArbol(x, z) {
-    // Tronco
-    const trunkGeometry = new THREE.BoxGeometry(1, 4, 1);
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    trunk.position.set(x, 2, z);
-    trunk.castShadow = true;
-    trunk.receiveShadow = true;
-    scene.add(trunk);
-
-    // Hojas (Cubo verde encima)
-    const leavesGeometry = new THREE.BoxGeometry(3, 3, 3);
-    const leavesMaterial = new THREE.MeshStandardMaterial({ color: 0x2e7d32 });
-    const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-    leaves.position.set(x, 5, z);
-    leaves.castShadow = true;
-    leaves.receiveShadow = true;
-    scene.add(leaves);
-}
-
-let playerGroup;
-function crearPersonaje() {
-    // Creamos un grupo para contener todas las partes del personaje
-    playerGroup = new THREE.Group();
-
-    // Materiales
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x3498db });
-    const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-
-    // Cuerpo (Cubo azul)
-    const bodyGeometry = new THREE.BoxGeometry(1, 2, 1);
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1; // Elevado para que los pies toquen el suelo
-    body.castShadow = true;
-    playerGroup.add(body);
+    // Torso (Marrón claro)
+    const torsoGeo = new THREE.BoxGeometry(1, 1.2, 0.6);
+    const torsoMat = new THREE.MeshStandardMaterial({ color: 0x795548 });
+    const torso = new THREE.Mesh(torsoGeo, torsoMat);
+    torso.position.y = 1.4;
+    torso.castShadow = true;
+    vaquero.add(torso);
 
     // Cabeza
-    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-    const head = new THREE.Mesh(headGeometry, skinMaterial);
-    head.position.y = 2.4;
+    const headGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 2.3;
     head.castShadow = true;
-    playerGroup.add(head);
+    vaquero.add(head);
 
-    // Posición inicial del personaje
-    playerGroup.position.set(0, 0, 0);
-    scene.add(playerGroup);
+    // Sombrero Vaquero
+    const brimGeo = new THREE.BoxGeometry(1.6, 0.1, 1.4); // Ala
+    const crownGeo = new THREE.BoxGeometry(0.8, 0.5, 0.7); // Copa
+    const hatMat = new THREE.MeshStandardMaterial({ color: 0x3e2723 });
+    const brim = new THREE.Mesh(brimGeo, hatMat);
+    brim.position.y = 2.7;
+    const crown = new THREE.Mesh(crownGeo, hatMat);
+    crown.position.y = 3.0;
+    vaquero.add(brim, crown);
 
-    // Hacer que los controles miren al personaje
-    controls.target = playerGroup.position;
+    scene.add(vaquero);
 }
 
-// --- CONTROLES Y ANIMACIÓN ---
-function setupControls() {
-    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+function crearObstaculo(x, y, z) {
+    const box = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 5, 5),
+        new THREE.MeshStandardMaterial({ color: 0xa1887f })
+    );
+    box.position.set(x, 2.5, z);
+    box.castShadow = true;
+    box.receiveShadow = true;
+    scene.add(box);
 }
 
 function onWindowResize() {
@@ -166,33 +149,50 @@ function onWindowResize() {
 }
 
 function update() {
-    // Movimiento del personaje (WASD)
-    // El movimiento es relativo a la rotación del personaje
-    if (keys['w']) {
-        playerGroup.translateZ(-player.speed);
-    }
-    if (keys['s']) {
-        playerGroup.translateZ(player.speed);
-    }
-    if (keys['a']) {
-        playerGroup.rotation.y += player.rotSpeed;
-    }
-    if (keys['d']) {
-        playerGroup.rotation.y -= player.rotSpeed;
+    let moving = false;
+
+    // Movimiento Relativo a la rotación del personaje
+    if (keys['KeyW']) { vaquero.translateZ(-config.speed); moving = true; }
+    if (keys['KeyS']) { vaquero.translateZ(config.speed); moving = true; }
+    if (keys['KeyA']) { vaquero.rotation.y += 0.05; moving = true; }
+    if (keys['KeyD']) { vaquero.rotation.y -= 0.05; moving = true; }
+
+    // Animación de caminata (balanceo)
+    if (moving) {
+        config.walkCycle += 0.2;
+        vaquero.children[2].rotation.z = Math.sin(config.walkCycle) * 0.05; // Torso rebota
     }
 
-    // Actualizar los controles de órbita (necesario si cambiamos el target)
+    // Lógica de Salto (Espacio o Escape)
+    if ((keys['Space'] || keys['Escape']) && !config.isJumping) {
+        config.vY = config.jumpForce;
+        config.isJumping = true;
+    }
+
+    if (config.isJumping) {
+        vaquero.position.y += config.vY;
+        config.vY -= config.gravity;
+        if (vaquero.position.y <= 0) {
+            vaquero.position.y = 0;
+            config.isJumping = false;
+        }
+    }
+
+    // CÁMARA DE SEGUIMIENTO (Tercera Persona)
+    // Hacemos que los controles de órbita siempre se centren en el vaquero
+    controls.target.copy(vaquero.position);
+    
+    // Para que la cámara no se quede estática, la desplazamos con el personaje
+    // pero permitiendo que el usuario rote con el ratón.
     controls.update();
 }
 
-// BUCLE DE RENDERIZADO (El Game Loop)
 function animate() {
     requestAnimationFrame(animate);
     update();
     renderer.render(scene, camera);
 }
 
-// INICIAR TODO
 init();
 animate();
 
