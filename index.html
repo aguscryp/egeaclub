@@ -2,23 +2,24 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>3D Cowboy Engine: First & Third Person</title>
+    <title>3D Open World Engine</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
+        canvas { display: block; }
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px;
-            border: 2px solid #5d4037; pointer-events: none;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2); pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        canvas { display: block; }
-        .hint { color: #ffeb3b; font-size: 12px; margin-top: 5px; }
+        .key { color: #58ff58; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <strong>MODO: <span id="modoTxt">TERCERA PERSONA</span></strong><br>
-    <div class="hint">WASD: Mover | flechas ← →: Girar Cámara | V: Cambiar Vista | ESPACIO: Saltar</div>
+    <strong>3D WORLD EXPLORER</strong><br>
+    <small>Movimiento: <span class="key">WASD</span> | Cámara: <span class="key">Flechas ← →</span></small>
 </div>
 
 <canvas id="game"></canvas>
@@ -26,20 +27,24 @@
 <script>
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-const modoTxt = document.getElementById('modoTxt');
 
 let width, height;
-let primeraPersona = false;
 const keys = {};
-
-// --- CONFIGURACIÓN DEL JUGADOR ---
 const player = {
     x: 0, y: 0, z: 0,
-    angle: 0, // Rotación de la cámara/personaje
-    speed: 4,
-    rotSpeed: 0.05,
-    vz: 0, isJumping: false,
+    angle: 0,
+    speed: 5,
+    rotSpeed: 0.04,
     walkCycle: 0
+};
+
+// Configuración de Colores y Estilo
+const COLORS = {
+    grass1: '#4caf50',
+    grass2: '#388e3c',
+    playerBody: '#3498db',
+    playerSkin: '#ffe0bd',
+    shadow: 'rgba(0,0,0,0.3)'
 };
 
 function resize() {
@@ -49,32 +54,26 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-window.onkeydown = (e) => { 
-    keys[e.key.toLowerCase()] = true; 
-    if(e.key === 'v') {
-        primeraPersona = !primeraPersona;
-        modoTxt.innerText = primeraPersona ? "PRIMERA PERSONA (MINECRAFT)" : "TERCERA PERSONA (ROBLOX)";
-    }
-};
+window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
 window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
-// --- MOTOR DE PROYECCIÓN 3D SIMPLE ---
-// Transforma coordenadas 3D (x, y, z) a 2D (pantalla)
+/**
+ * PROYECCIÓN 3D: Convierte coordenadas de mundo a coordenadas de pantalla
+ */
 function project(x, y, z) {
-    // Traslación relativa al jugador
     let dx = x - player.x;
     let dy = y - player.y;
-    
-    // Rotación de cámara
+
+    // Rotación de la cámara (Matemática de rotación 2D)
     let rx = dx * Math.cos(-player.angle) - dy * Math.sin(-player.angle);
     let ry = dx * Math.sin(-player.angle) + dy * Math.cos(-player.angle);
     
-    let rz = z - (player.z + 60); // Altura de los ojos
+    // Altura relativa (z es profundidad, pero aquí y es profundidad en pantalla)
+    let rz = z - 60; // Altura de ojos del espectador
 
-    // Si está detrás de la cámara, no dibujar
-    if (ry < 10) return null;
+    if (ry < 1) return null; // Detrás de la cámara
 
-    const fov = 600; // Distancia focal
+    const fov = 800; // Campo de visión
     const scale = fov / ry;
     
     return {
@@ -84,102 +83,117 @@ function project(x, y, z) {
     };
 }
 
-// --- DIBUJO DE OBJETOS ---
-function drawCube(x, y, z, w, h, d, color) {
-    // Dibujamos una caja simple basada en la proyección de sus esquinas
-    const p1 = project(x - w/2, y - d/2, -z);
-    const p2 = project(x + w/2, y + d/2, -z - h);
-    
-    if (!p1 || !p2) return;
+/**
+ * DIBUJO DEL SUELO 3D CON SOMBRAS Y SEPARACIÓN
+ */
+function drawInfiniteGrass() {
+    const tileSize = 150;
+    const range = 12; // Cuántos bloques vemos a la redonda
 
-    const cw = (p2.x - p1.x);
-    const ch = (p2.y - p1.y);
+    // Calculamos el bloque actual donde está el jugador
+    const playerTileX = Math.floor(player.x / tileSize);
+    const playerTileY = Math.floor(player.y / tileSize);
 
-    // Sombra lateral
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.8;
-    ctx.fillRect(p1.x, p1.y, cw, ch);
-    ctx.globalAlpha = 1.0;
-    ctx.strokeStyle = "rgba(0,0,0,0.2)";
-    ctx.strokeRect(p1.x, p1.y, cw, ch);
+    for (let i = playerTileX - range; i <= playerTileX + range; i++) {
+        for (let j = playerTileY - range; j <= playerTileY + range; j++) {
+            
+            // Esquinas del cuadrado en 3D
+            const p1 = project(i * tileSize, j * tileSize, 0);
+            const p2 = project((i + 1) * tileSize, j * tileSize, 0);
+            const p3 = project((i + 1) * tileSize, (j + 1) * tileSize, 0);
+            const p4 = project(i * tileSize, (j + 1) * tileSize, 0);
+
+            if (p1 && p2 && p3 && p4) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.lineTo(p3.x, p3.y);
+                ctx.lineTo(p4.x, p4.y);
+                ctx.closePath();
+
+                // Colores alternados para "separación" clara de bloques
+                ctx.fillStyle = (i + j) % 2 === 0 ? COLORS.grass1 : COLORS.grass2;
+                ctx.fill();
+
+                // Líneas de cuadrícula sutiles para realzar el 3D
+                ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+                ctx.stroke();
+            }
+        }
+    }
 }
 
-function drawCowboy() {
-    if (primeraPersona) return; // En 1ª persona no vemos nuestro cuerpo
+/**
+ * DIBUJO DEL PERSONAJE (Estilo Bloque con Sombras)
+ */
+function drawPlayer() {
+    const bob = Math.sin(player.walkCycle) * 6; // Efecto de rebote al caminar
+    const pos = project(player.x, player.y + 120, 0); // Lo dibujamos un poco adelante
 
-    const bob = Math.sin(player.walkCycle) * 5;
-    // El personaje se dibuja un poco por delante de la cámara en 3ª persona
-    const p = project(player.x, player.y + 150, -player.z); 
-    
-    if (!p) return;
+    if (!pos) return;
+    const s = pos.scale;
 
-    const s = p.scale;
-    
-    // Sombrero
-    ctx.fillStyle = "#3e2723";
-    ctx.fillRect(p.x - 15*s, p.y - 45*s + bob, 30*s, 5*s); // Ala
-    ctx.fillRect(p.x - 8*s, p.y - 55*s + bob, 16*s, 10*s); // Copa
-    
-    // Cabeza
-    ctx.fillStyle = "#ffccbc";
-    ctx.fillRect(p.x - 7*s, p.y - 40*s + bob, 14*s, 14*s);
-    
-    // Cuerpo
-    ctx.fillStyle = "#795548";
-    ctx.fillRect(p.x - 10*s, p.y - 26*s + bob, 20*s, 22*s);
-}
+    // 1. Sombra Proyectada en el suelo
+    ctx.fillStyle = COLORS.shadow;
+    ctx.beginPath();
+    ctx.ellipse(pos.x, pos.y, 25 * s, 12 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
 
-function drawWorld() {
-    // 1. Suelo Infinito (Líneas de perspectiva)
-    ctx.fillStyle = "#4caf50";
-    ctx.fillRect(0, height/2, width, height/2); // Horizonte básico
+    // 2. Piernas (Simples con movimiento)
+    ctx.fillStyle = "#2c3e50";
+    const legW = 8 * s;
+    const legH = 15 * s;
+    ctx.fillRect(pos.x - 10 * s, pos.y - 15 * s + bob, legW, legH);
+    ctx.fillRect(pos.x + 2 * s, pos.y - 15 * s - bob, legW, legH);
 
-    // 2. Una "Casa" de prueba (Paredes)
-    // Pared izquierda
-    drawCube(200, 500, 0, 10, 150, 200, "#a1887f");
-    // Pared derecha
-    drawCube(400, 500, 0, 10, 150, 200, "#a1887f");
-    // Techo
-    drawCube(300, 500, 150, 210, 10, 200, "#5d4037");
+    // 3. Torso (Cubo azul)
+    ctx.fillStyle = COLORS.playerBody;
+    ctx.fillRect(pos.x - 15 * s, pos.y - 40 * s + bob, 30 * s, 25 * s);
+    
+    // Brillo en el torso para volumen
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(pos.x - 15 * s, pos.y - 40 * s + bob, 5 * s, 25 * s);
+
+    // 4. Cabeza
+    ctx.fillStyle = COLORS.playerSkin;
+    ctx.fillRect(pos.x - 8 * s, pos.y - 55 * s + bob, 16 * s, 16 * s);
+
+    // 5. Cara (Ojos)
+    ctx.fillStyle = '#000';
+    ctx.fillRect(pos.x - 5 * s, pos.y - 50 * s + bob, 2 * s, 2 * s);
+    ctx.fillRect(pos.x + 3 * s, pos.y - 50 * s + bob, 2 * s, 2 * s);
 }
 
 function update() {
-    // Rotación
+    // Rotación de Cámara
     if (keys['arrowleft']) player.angle -= player.rotSpeed;
     if (keys['arrowright']) player.angle += player.rotSpeed;
 
-    // Movimiento relativo al ángulo de la cámara
-    let mvX = 0;
-    let mvY = 0;
-    if (keys['w']) { mvX = Math.sin(player.angle); mvY = Math.cos(player.angle); }
-    if (keys['s']) { mvX = -Math.sin(player.angle); mvY = -Math.cos(player.angle); }
-    if (keys['a']) { mvX = -Math.cos(player.angle); mvY = Math.sin(player.angle); }
-    if (keys['d']) { mvX = Math.cos(player.angle); mvY = -Math.sin(player.angle); }
+    // Movimiento Relativo a la Cámara (WASD)
+    let moveX = 0;
+    let moveY = 0;
 
-    if (mvX !== 0 || mvY !== 0) {
-        player.x += mvX * player.speed;
-        player.y += mvY * player.speed;
+    if (keys['w']) { moveX += Math.sin(player.angle); moveY += Math.cos(player.angle); }
+    if (keys['s']) { moveX -= Math.sin(player.angle); moveY -= Math.cos(player.angle); }
+    if (keys['a']) { moveX -= Math.cos(player.angle); moveY += Math.sin(player.angle); }
+    if (keys['d']) { moveX += Math.cos(player.angle); moveY -= Math.sin(player.angle); }
+
+    if (moveX !== 0 || moveY !== 0) {
+        player.x += moveX * player.speed;
+        player.y += moveY * player.speed;
         player.walkCycle += 0.2;
-    }
-
-    // Salto
-    if (keys[' '] && !player.isJumping) { player.vz = 10; player.isJumping = true; }
-    if (player.isJumping) {
-        player.z += player.vz;
-        player.vz -= 0.7;
-        if (player.z <= 0) { player.z = 0; player.isJumping = false; }
     }
 }
 
 function loop() {
-    // Cielo
+    // Limpiar pantalla con color de cielo
     ctx.fillStyle = "#87CEEB";
     ctx.fillRect(0, 0, width, height);
 
-    drawWorld();
-    drawCowboy();
     update();
-    
+    drawInfiniteGrass();
+    drawPlayer();
+
     requestAnimationFrame(loop);
 }
 
