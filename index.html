@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cowboy Engine Pro - Full Integration</title>
+    <title>3D Cowboy Pro - Realistic SW4 Model</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', sans-serif; }
         
@@ -39,12 +39,20 @@
             transform: scale(1.15) translateY(-5px);
             box-shadow: 0 5px 15px rgba(255, 0, 127, 0.4);
         }
+
+        #loading {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; color: #ff007f; display: flex;
+            align-items: center; justify-content: center; font-size: 24px; z-index: 200;
+        }
     </style>
 </head>
 <body>
 
+<div id="loading">Cargando Modelo SW4 Realista...</div>
+
 <div id="ui-top">
-    <strong>COWBOY OS v3.0</strong><br>
+    <strong>COWBOY OS v4.0</strong><br>
     <small><b>WASD</b>: Caminar | <b>Espacio</b>: Saltar | <b>Mouse</b>: Zoom y Giro</small>
 </div>
 
@@ -52,15 +60,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <script>
-/** * ARCHIVO DE DATOS (RECURSOS)
- * En tu repositorio, esto vendría de un archivo .js o .json externo
- */
+/** * ARCHIVO DE DATOS (RECURSOS) */
 const RECURSOS_MUNDO = [
-    { id: "sw4", nombre: "Toyota SW4", icono: "🛻" },
-    { id: "oro", nombre: "Lingote", icono: "💰" },
-    { id: "casa", nombre: "Cabaña", icono: "🏠" }
+    { id: "sw4", nombre: "Toyota SW4 Real", icono: "🛻" },
+    { id: "oro", nombre: "Lingote", icono: "💰" }
 ];
 
 let scene, camera, renderer, controls, vaquero;
@@ -69,13 +75,7 @@ let obstacles = [];
 const keys = {};
 
 const config = {
-    speed: 0.18,
-    jumpForce: 0.28,
-    gravity: 0.012,
-    vY: 0,
-    isJumping: false,
-    walkCycle: 0,
-    turnSpeed: 0.15 
+    speed: 0.18, jumpForce: 0.28, gravity: 0.012, vY: 0, isJumping: false, walkCycle: 0, turnSpeed: 0.15 
 };
 
 function init() {
@@ -89,29 +89,71 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding; // Importante para colores de modelos realistas
     document.body.appendChild(renderer.domElement);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.2);
     sun.position.set(30, 50, 30);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
-    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.5));
+    scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
     crearTerreno();
-    crearVaquero(); // Con toda la lógica de extremidades y cara
+    crearVaquero(); // Mantenemos tu personaje configurado
     crearCasa(15, 0, -15);
-    crearCamioneta(10, 0, 5);
     cargarInventarioUI();
+
+    // --- CARGA DE MODELO SW4 REALISTA ---
+    cargarModeloRealista(10, 0, 5);
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.1;
     controls.minDistance = 5;
     controls.maxDistance = 25;
 
     window.onkeydown = (e) => keys[e.code] = true;
     window.onkeyup = (e) => keys[e.code] = false;
     window.addEventListener('resize', onWindowResize);
+}
+
+// NUEVA FUNCIÓN: Carga un archivo .glb/.gltf externo
+function cargarModeloRealista(x, y, z) {
+    const loader = new THREE.GLTFLoader();
+    
+    // URL de un modelo de camioneta realista de prueba (formato .glb)
+    // En tu repositorio, usarías: loader.load('./modelos/sw4.glb', ... )
+    const urlModeloPrueba = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb'; 
+
+    loader.load(urlModeloPrueba, function (gltf) {
+        const camionetaReal = gltf.scene;
+        
+        // Ajustar escala y rotación si es necesario (los modelos externos varian)
+        camionetaReal.scale.set(1.5, 1.5, 1.5); 
+        camionetaReal.rotation.y = Math.PI / 2; // Orientarla
+        camionetaReal.position.set(x, y, z);
+        
+        // Activar sombras para todo el modelo importado
+        camionetaReal.traverse(function (node) {
+            if (node.isMesh) {
+                node.castShadow = true;
+                node.receiveShadow = true;
+            }
+        });
+
+        scene.add(camionetaReal);
+        
+        // Crear colisión para el modelo realista
+        // Usamos una caja simple que cubra el volumen del modelo
+        const box = new THREE.Box3().setFromObject(camionetaReal);
+        obstacles.push(box);
+
+        // Ocultar pantalla de carga
+        document.getElementById('loading').style.display = 'none';
+
+    }, undefined, function (error) {
+        console.error('Error cargando el modelo:', error);
+        document.getElementById('loading').innerText = 'Error cargando SW4';
+    });
 }
 
 function crearVaquero() {
@@ -121,7 +163,6 @@ function crearVaquero() {
     const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
     const matNegro = new THREE.MeshStandardMaterial({ color: 0x000000 });
 
-    // Extremidades para animación
     const legGeo = new THREE.BoxGeometry(0.35, 1, 0.35);
     piernaIzq = new THREE.Mesh(legGeo, matCuero);
     piernaIzq.position.set(-0.25, 0.5, 0);
@@ -138,7 +179,6 @@ function crearVaquero() {
     torso.position.y = 1.6;
     torso.castShadow = true;
 
-    // Cabeza con CARA SONRIENTE
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 0.65), matPiel);
     head.position.y = 2.5;
     head.castShadow = true;
@@ -147,7 +187,6 @@ function crearVaquero() {
     const e1 = new THREE.Mesh(eyeGeo, matNegro); e1.position.set(0.15, 0.1, 0.33);
     const e2 = e1.clone(); e2.position.x = -0.15;
     
-    // Sonrisa 3 bloques
     const b1 = new THREE.Mesh(eyeGeo, matNegro); b1.position.set(0, -0.15, 0.33);
     const b2 = b1.clone(); b2.position.set(0.1, -0.1, 0.33);
     const b3 = b1.clone(); b3.position.set(-0.1, -0.1, 0.33);
@@ -167,22 +206,9 @@ function cargarInventarioUI() {
         slot.className = 'inv-slot';
         slot.innerHTML = item.icono;
         slot.title = item.nombre;
-        slot.onclick = () => console.log(`Equipando: ${item.nombre}`);
+        slot.onclick = () => alert(`Equipando: ${item.nombre}`);
         container.appendChild(slot);
     });
-}
-
-function crearCamioneta(x, y, z) {
-    const car = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({color: 0xffffff});
-    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1.8, 8), mat);
-    body.position.y = 1.2; body.castShadow = true;
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.5, 4), mat);
-    cabin.position.set(0, 2.8, -0.5); cabin.castShadow = true;
-    car.add(body, cabin);
-    car.position.set(x, y, z);
-    scene.add(car);
-    obstacles.push(new THREE.Box3().setFromObject(car));
 }
 
 function crearCasa(x, y, z) {
@@ -250,12 +276,12 @@ function update() {
         if (vaquero.position.y <= 0) { vaquero.position.y = 0; config.isJumping = false; }
     }
 
-    // Techo dinámico
     const dist = vaquero.position.distanceTo(new THREE.Vector3(15, 0, -15));
-    houseRoof.material.transparent = true;
-    houseRoof.material.opacity = (dist < 5) ? 0.2 : 1.0;
+    if(houseRoof) {
+        houseRoof.material.transparent = true;
+        houseRoof.material.opacity = (dist < 5) ? 0.2 : 1.0;
+    }
 
-    // Cámara FIJA con Zoom
     camera.position.add(vaquero.position.clone().sub(prevPos));
     controls.target.copy(vaquero.position);
     controls.update();
