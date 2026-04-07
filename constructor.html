@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>City Builder | Admin Engine</title>
+    <style>
+        :root { --pink: #ff007f; --bg: #0a0a0a; }
+        body { margin: 0; display: flex; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
+        #sidebar { 
+            width: 380px; height: 100vh; background: rgba(15, 15, 15, 0.95); 
+            border-right: 2px solid var(--pink); padding: 25px; box-sizing: border-box; 
+            z-index: 10; overflow-y: auto;
+        }
+        
+        h1 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px; border-bottom: 2px solid #222; padding-bottom: 10px; }
+        .section { background: #1a1a1a; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #333; }
+        label { display: block; font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+
+        select, input { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; margin-bottom: 15px; }
+        
+        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .btn-ctrl { background: #252525; color: white; border: 1px solid #444; padding: 12px; cursor: pointer; border-radius: 5px; font-size: 11px; font-weight: bold; }
+        .btn-ctrl:hover { background: var(--pink); border-color: var(--pink); }
+
+        .btn-main { background: var(--pink); color: white; border: none; padding: 18px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 10px; box-shadow: 0 0 15px rgba(255,0,127,0.3); }
+        
+        #view { flex: 1; height: 100vh; }
+        .info { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; border: 1px solid var(--pink); font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h1>City Builder v1.0</h1>
+
+        <div class="section">
+            <label>1. Seleccionar Módulo</label>
+            <select id="moduleSelect" onchange="previewModule()">
+                <option value="calle">Calle (Asfalto)</option>
+                <option value="tienda">Tienda Neón</option>
+                <option value="banco">Banco Central</option>
+                <option value="concesionaria">Concesionaria SW4</option>
+            </select>
+            <button class="btn-main" onclick="spawnNew()">INSTALAR EN EL MUNDO</button>
+        </div>
+
+        <div class="section">
+            <label>2. Control de Entidad Seleccionada</label>
+            <div id="entityName" style="font-size: 12px; color: var(--pink); margin-bottom: 10px;">Nada seleccionado</div>
+            <div class="btn-grid">
+                <button class="btn-ctrl" onclick="moveActive('x', -2)">IZQ</button>
+                <button class="btn-ctrl" onclick="moveActive('y', 1)">SUBIR</button>
+                <button class="btn-ctrl" onclick="moveActive('x', 2)">DER</button>
+                <button class="btn-ctrl" onclick="moveActive('z', 2)">ATRÁS</button>
+                <button class="btn-ctrl" onclick="moveActive('y', -1)">BAJAR</button>
+                <button class="btn-ctrl" onclick="moveActive('z', -2)">FRENTE</button>
+            </div>
+            <button class="btn-ctrl" style="width:100%; margin-top:10px;" onclick="rotateActive()">ROTAR 90°</button>
+        </div>
+
+        <button class="btn-main" style="background:#00d4ff;" onclick="saveWorld()">PUBLICAR CIUDAD</button>
+    </div>
+
+    <div id="view"></div>
+    <div class="info">
+        <b>CONTROLES DE CÁMARA:</b><br>
+        • Click Izquierdo: Orbitar<br>
+        • Click Derecho: Desplazar<br>
+        • Rueda: Zoom
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let worldEntities = []; // Aquí guardamos todos los edificios/calles
+        let activeEntity = null;
+
+        function init() {
+            const container = document.getElementById('view');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050505);
+
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 2000);
+            camera.position.set(50, 50, 50);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const sun = new THREE.DirectionalLight(0xffffff, 1);
+            sun.position.set(100, 200, 100);
+            scene.add(sun);
+
+            const grid = new THREE.GridHelper(500, 50, 0x333333, 0x111111);
+            scene.add(grid);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            animate();
+        }
+
+        // --- FÁBRICA DE MÓDULOS ---
+        function createModule(type) {
+            const group = new THREE.Group();
+            group.userData = { type: type };
+
+            if(type === 'calle') {
+                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({color: 0x111111}));
+                mesh.rotation.x = -Math.PI/2;
+                // Línea amarilla
+                const line = new THREE.Mesh(new THREE.PlaneGeometry(1, 20), new THREE.MeshStandardMaterial({color: 0xffcc00}));
+                line.rotation.x = -Math.PI/2; line.position.y = 0.01;
+                group.add(mesh, line);
+            } 
+            else if(type === 'tienda') {
+                const base = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 16), new THREE.MeshStandardMaterial({color: 0x1a1a1a}));
+                base.position.y = 3;
+                const sign = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 0.5), new THREE.MeshStandardMaterial({color: 0xff007f}));
+                sign.position.set(0, 7, 8);
+                group.add(base, sign);
+            }
+            else if(type === 'banco') {
+                const base = new THREE.Mesh(new THREE.BoxGeometry(25, 12, 25), new THREE.MeshStandardMaterial({color: 0x2c3e50}));
+                base.position.y = 6;
+                const columns = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 2), new THREE.MeshStandardMaterial({color: 0xbdc3c7}));
+                columns.position.set(0, 5, 13);
+                group.add(base, columns);
+            }
+            else if(type === 'concesionaria') {
+                const floor = new THREE.Mesh(new THREE.BoxGeometry(30, 0.5, 30), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
+                const glass = new THREE.Mesh(new THREE.BoxGeometry(28, 8, 28), new THREE.MeshStandardMaterial({color: 0x00aaff, transparent: true, opacity: 0.2}));
+                glass.position.y = 4;
+                group.add(floor, glass);
+            }
+
+            return group;
+        }
+
+        function spawnNew() {
+            const type = document.getElementById('moduleSelect').value;
+            const newEntity = createModule(type);
+            scene.add(newEntity);
+            worldEntities.push(newEntity);
+            activeEntity = newEntity;
+            document.getElementById('entityName').innerText = "Editando: " + type.toUpperCase();
+        }
+
+        window.moveActive = function(axis, delta) {
+            if(!activeEntity) return;
+            activeEntity.position[axis] += delta;
+        }
+
+        window.rotateActive = function() {
+            if(!activeEntity) return;
+            activeEntity.rotation.y += Math.PI / 2;
+        }
+
+        function saveWorld() {
+            const data = worldEntities.map(ent => ({
+                type: ent.userData.type,
+                pos: { x: ent.position.x, y: ent.position.y, z: ent.position.z },
+                rot: ent.rotation.y
+            }));
+            localStorage.setItem('ciudad_data', JSON.stringify(data));
+            alert("¡Ciudad Publicada! Se han guardado " + data.length + " entidades.");
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
