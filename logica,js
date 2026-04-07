@@ -1,0 +1,45 @@
+// logica.js
+let scene, camera, renderer, vaquero;
+const config = JSON.parse(localStorage.getItem('playerConfig'));
+
+function initGame() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Luces
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    
+    // Crear Suelo
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(500,500), new THREE.MeshStandardMaterial({color: 0x4caf50}));
+    ground.rotation.x = -Math.PI/2;
+    scene.add(ground);
+
+    // Crear Personaje con los colores de Perfil.html
+    vaquero = new THREE.Group();
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), new THREE.MeshStandardMaterial({color: config.color}));
+    torso.position.y = 1.6;
+    vaquero.add(torso);
+    // ... agregar cabeza, piernas y cara sonriente aquí ...
+    scene.add(vaquero);
+
+    // LÓGICA DE MOVIMIENTO (W, A, S, D)
+    window.addEventListener('keydown', (e) => {
+        if(e.code === 'KeyW') vaquero.position.z -= 0.2;
+        if(e.code === 'KeyS') vaquero.position.z += 0.2;
+        // La cámara sigue al personaje
+        camera.position.set(vaquero.position.x, vaquero.position.y + 5, vaquero.position.z + 10);
+        camera.lookAt(vaquero.position);
+    });
+
+    animate();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
+}
