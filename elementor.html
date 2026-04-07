@@ -1,187 +1,81 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Elementor Pro | Agustín Admin</title>
-    <style>
-        :root { --pink: #ff007f; --neon: #00d4ff; --bg: #050505; }
-        body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
-        
-        #side-panel {
-            width: 300px; height: 100vh; background: rgba(10, 10, 10, 0.95);
-            border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 10px; z-index: 100;
-            box-shadow: 10px 0 30px rgba(255, 0, 127, 0.2);
+function draw(obj) {
+    const group = new THREE.Group();
+    group.position.set(obj.pos.x, 0, obj.pos.z);
+
+    if (obj.type === 'calle') {
+        const geo = new THREE.BoxGeometry(50, 0.4, 50);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        group.add(new THREE.Mesh(geo, mat));
+    } 
+    
+    else if (obj.type === 'sw4') {
+        // CUERPO DE LA CAMIONETA
+        const body = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 16), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
+        body.position.y = 3;
+        const cabina = new THREE.Mesh(new THREE.BoxGeometry(7, 3, 8), new THREE.MeshStandardMaterial({color: 0x333333}));
+        cabina.position.set(0, 6, -1);
+        // RUEDAS
+        const rGeo = new THREE.CylinderGeometry(1.2, 1.2, 1, 12);
+        const rMat = new THREE.MeshStandardMaterial({color: 0x111111});
+        for(let i=0; i<4; i++) {
+            const r = new THREE.Mesh(rGeo, rMat);
+            r.rotation.z = Math.PI/2;
+            r.position.set(i%2?4:-4, 1.2, i<2?5:-5);
+            group.add(r);
         }
+        group.add(body, cabina);
+    }
 
-        h2 { color: var(--pink); text-transform: uppercase; letter-spacing: 2px; font-size: 16px; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .cat { font-size: 9px; color: var(--neon); letter-spacing: 1px; margin-top: 10px; font-weight: bold; }
-        
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .item-btn {
-            background: #111; border: 1px solid #333; color: #aaa; padding: 10px;
-            border-radius: 6px; cursor: pointer; transition: 0.3s; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
+    else if (obj.type === 'estacion') {
+        // PLAYÓN
+        const playon = new THREE.Mesh(new THREE.BoxGeometry(40, 0.5, 30), new THREE.MeshStandardMaterial({color: 0x444444}));
+        // TECHO IMPONENTE
+        const techo = new THREE.Mesh(new THREE.BoxGeometry(42, 2, 32), new THREE.MeshStandardMaterial({color: 0x00ff44}));
+        techo.position.y = 15;
+        // COLUMNAS
+        const colGeo = new THREE.CylinderGeometry(1, 1, 15);
+        const colMat = new THREE.MeshStandardMaterial({color: 0xcccccc});
+        for(let i=0; i<2; i++) {
+            const c = new THREE.Mesh(colGeo, colMat);
+            c.position.set(i%2?15:-15, 7.5, 0);
+            group.add(c);
         }
-        .item-btn:hover { border-color: var(--pink); color: white; background: #1a1a1a; }
-        .item-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
+        group.add(playon, techo);
+    }
 
-        #view { flex-grow: 1; position: relative; cursor: crosshair; }
-        #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: var(--neon); font-size: 11px; border: 1px solid var(--neon); }
-        .controls-hint { position: absolute; bottom: 20px; right: 20px; color: #555; font-size: 10px; }
-    </style>
-</head>
-<body>
+    else if (obj.type === 'farola') {
+        const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 20), new THREE.MeshStandardMaterial({color: 0x333333}));
+        poste.position.y = 10;
+        const lampara = new THREE.Mesh(new THREE.SphereGeometry(1.5), new THREE.MeshBasicMaterial({color: 0xffff00}));
+        lampara.position.y = 20;
+        group.add(poste, lampara);
+    }
 
-    <div id="side-panel">
-        <h2>ELEMENTOR ADMIN</h2>
-        
-        <div class="cat">ESTRUCTURAS</div>
-        <div class="grid">
-            <button class="item-btn active" onclick="sel('calle', this)">🛣️ CALLE</button>
-            <button class="item-btn" onclick="sel('casa', this)">🏠 CASA</button>
-            <button class="item-btn" onclick="sel('farola', this)">💡 FAROLA</button>
-        </div>
+    else if (obj.type === 'taller') {
+        // EDIFICIO AGUSLAVADOS
+        const base = new THREE.Mesh(new THREE.BoxGeometry(25, 12, 25), new THREE.MeshStandardMaterial({color: 0x00d4ff, transparent: true, opacity: 0.8}));
+        base.position.y = 6;
+        const logo = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 1), new THREE.MeshStandardMaterial({color: 0xff007f}));
+        logo.position.set(0, 10, 12.6);
+        group.add(base, logo);
+    }
 
-        <div class="cat">SERVICIOS</div>
-        <div class="grid">
-            <button class="item-btn" onclick="sel('estacion', this)">⛽ ESTACIÓN</button>
-            <button class="item-btn" onclick="sel('taller', this)">🔧 TALLER</button>
-        </div>
+    else if (obj.type === 'pino') {
+        const tronco = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1, 5), new THREE.MeshStandardMaterial({color: 0x3d2b1f}));
+        tronco.position.y = 2.5;
+        const hojas = new THREE.Mesh(new THREE.ConeGeometry(6, 15, 8), new THREE.MeshStandardMaterial({color: 0x1a4d1a}));
+        hojas.position.y = 12.5;
+        group.add(tronco, hojas);
+    }
 
-        <div class="cat">VEHÍCULOS</div>
-        <div class="grid">
-            <button class="item-btn" onclick="sel('sw4', this)">🛻 SW4</button>
-            <button class="item-btn" onclick="sel('vaca', this)">🐄 ANIMAL</button>
-        </div>
+    else {
+        // Default para otros objetos
+        const geo = new THREE.BoxGeometry(10, 10, 10);
+        const mat = new THREE.MeshStandardMaterial({color: 0xff007f});
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.y = 5;
+        group.add(mesh);
+    }
 
-        <button onclick="limpiarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:5px; font-size:10px;">ELIMINAR MAPA</button>
-    </div>
-
-    <div id="view">
-        <div id="status">OBJETO: CALLE | ZOOM: 100%</div>
-        <div class="controls-hint">Ruedita: Zoom | Click Izq: Poner | Click Der: Girar Cámara</div>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        let scene, camera, renderer, grid, raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
-        let currentType = 'calle';
-        let zoomDist = 400;
-        let camRot = 0;
-        let isRightDown = false;
-
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0a);
-            
-            camera = new THREE.PerspectiveCamera(45, (window.innerWidth-300)/window.innerHeight, 1, 10000);
-            updateCamPos();
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth-300, window.innerHeight);
-            document.getElementById('view').appendChild(renderer.domElement);
-
-            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-            const light = new THREE.DirectionalLight(0xffffff, 0.8);
-            light.position.set(200, 500, 200);
-            scene.add(light);
-
-            grid = new THREE.GridHelper(4000, 80, 0x333333, 0x222222);
-            scene.add(grid);
-
-            renderExisting();
-
-            // ZOOM
-            window.addEventListener('wheel', (e) => {
-                zoomDist += e.deltaY * 0.5;
-                zoomDist = Math.max(50, Math.min(1500, zoomDist));
-                updateCamPos();
-                document.getElementById('status').innerText = `OBJETO: ${currentType.toUpperCase()} | ZOOM: ${Math.round(1000/zoomDist*40)}%`;
-            });
-
-            // GIRAR CÁMARA (Click Derecho)
-            window.addEventListener('contextmenu', e => e.preventDefault());
-            window.addEventListener('mousedown', e => { if(e.button === 2) isRightDown = true; });
-            window.addEventListener('mouseup', e => { if(e.button === 2) isRightDown = false; });
-            window.addEventListener('mousemove', e => {
-                const r = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-                mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-                
-                if(isRightDown) {
-                    camRot -= e.movementX * 0.01;
-                    updateCamPos();
-                }
-            });
-
-            // PONER ELEMENTO (Click Izquierdo)
-            window.addEventListener('click', (e) => {
-                if(e.button !== 0) return;
-                raycaster.setFromCamera(mouse, camera);
-                const hits = raycaster.intersectObject(grid);
-                if(hits.length > 0) {
-                    const p = hits[0].point;
-                    const obj = { 
-                        type: currentType, 
-                        pos: { x: Math.round(p.x/10)*10, z: Math.round(p.z/10)*10 } 
-                    };
-                    save(obj);
-                }
-            });
-
-            animate();
-        }
-
-        function updateCamPos() {
-            camera.position.x = zoomDist * Math.sin(camRot);
-            camera.position.z = zoomDist * Math.cos(camRot);
-            camera.position.y = zoomDist * 0.8;
-            camera.lookAt(0,0,0);
-        }
-
-        function sel(t, btn) {
-            currentType = t;
-            document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById('status').innerText = `OBJETO: ${t.toUpperCase()} | ZOOM: OK`;
-        }
-
-        function save(obj) {
-            let data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data.push(obj);
-            localStorage.setItem('elementos_ciudad', JSON.stringify(data));
-            draw(obj); // Se dibuja al instante
-        }
-
-        function draw(obj) {
-            let color, geo;
-            if (obj.type === 'calle') { color = 0x222222; geo = new THREE.BoxGeometry(50, 0.5, 50); }
-            else if (obj.type === 'estacion') { color = 0x00ff44; geo = new THREE.BoxGeometry(40, 10, 30); }
-            else if (obj.type === 'taller') { color = 0x00d4ff; geo = new THREE.BoxGeometry(25, 10, 25); }
-            else if (obj.type === 'farola') { color = 0xffff00; geo = new THREE.BoxGeometry(2, 15, 2); }
-            else { color = 0xff007f; geo = new THREE.BoxGeometry(10, 10, 10); }
-            
-            const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color: color}));
-            mesh.position.set(obj.pos.x, geo.parameters.height/2, obj.pos.z);
-            scene.add(mesh);
-        }
-
-        function renderExisting() {
-            let data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data.forEach(draw);
-        }
-
-        function limpiarTodo() {
-            if(confirm("¿Borrar todo?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        }
-
-        init();
-    </script>
-</body>
-</html>
+    scene.add(group);
+}
