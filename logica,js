@@ -1,45 +1,153 @@
-// logica.js
-let scene, camera, renderer, vaquero;
-const config = JSON.parse(localStorage.getItem('playerConfig'));
+let scene, camera, renderer, controls, vaquero, sw4;
+let isDriving = false;
+const keys = {};
+const playerConfig = JSON.parse(localStorage.getItem('playerConfig')) || { color: '#795548' };
 
 function initGame() {
+    // 1. ESCENA Y MOTOR
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87CEEB);
-    
+    scene.background = new THREE.Color(0x87CEEB); // Cielo azul
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 10, 20);
+
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     document.body.appendChild(renderer.domElement);
 
-    // Luces
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    
-    // Crear Suelo
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(500,500), new THREE.MeshStandardMaterial({color: 0x4caf50}));
-    ground.rotation.x = -Math.PI/2;
+    // 2. ILUMINACIÓN
+    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambient);
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    sun.position.set(50, 100, 50);
+    sun.castShadow = true;
+    scene.add(sun);
+
+    // 3. MUNDO (Suelo y Casa)
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(1000, 1000), 
+        new THREE.MeshStandardMaterial({ color: 0x4caf50 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
     scene.add(ground);
 
-    // Crear Personaje con los colores de Perfil.html
-    vaquero = new THREE.Group();
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), new THREE.MeshStandardMaterial({color: config.color}));
-    torso.position.y = 1.6;
-    vaquero.add(torso);
-    // ... agregar cabeza, piernas y cara sonriente aquí ...
-    scene.add(vaquero);
+    crearCasa(15, 0, -15);
 
-    // LÓGICA DE MOVIMIENTO (W, A, S, D)
-    window.addEventListener('keydown', (e) => {
-        if(e.code === 'KeyW') vaquero.position.z -= 0.2;
-        if(e.code === 'KeyS') vaquero.position.z += 0.2;
-        // La cámara sigue al personaje
-        camera.position.set(vaquero.position.x, vaquero.position.y + 5, vaquero.position.z + 10);
-        camera.lookAt(vaquero.position);
-    });
+    // 4. PERSONAJE PERSONALIZADO
+    crearVaqueroPersonalizado();
+
+    // 5. CARGAR SW4 REALISTA
+    cargarVehiculo(10, 0, 5);
+
+    // 6. CONTROLES DE CÁMARA
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // Eventos de teclado
+    window.onkeydown = (e) => { 
+        keys[e.code] = true; 
+        if(e.code === 'KeyE') intentarSubir();
+    };
+    window.onkeyup = (e) => keys[e.code] = false;
 
     animate();
 }
 
+function crearVaqueroPersonalizado() {
+    vaquero = new THREE.Group();
+    // Torso con el COLOR ELEGIDO en perfil.html
+    const matRopa = new THREE.MeshStandardMaterial({ color: playerConfig.color });
+    const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), matRopa);
+    torso.position.y = 1.6;
+    torso.castShadow = true;
+
+    const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), matPiel);
+    cabeza.position.y = 2.5;
+
+    // Piernas
+    const piernaG = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1, 0.4), matRopa);
+    piernaG.position.set(-0.25, 0.5, 0);
+    const piernaD = piernaG.clone(); piernaD.position.x = 0.25;
+
+    vaquero.add(torso, cabeza, piernaG, piernaD);
+    scene.add(vaquero);
+}
+
+function crearCasa(x, y, z) {
+    const casa = new THREE.Group();
+    const matPared = new THREE.MeshStandardMaterial({ color: 0x8d6e63 });
+    const paredes = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 8), matPared);
+    paredes.position.y = 2.5;
+    
+    const techo = new THREE.Mesh(
+        new THREE.ConeGeometry(7, 4, 4), 
+        new THREE.MeshStandardMaterial({ color: 0x3e2723 })
+    );
+    techo.position.y = 6.5;
+    techo.rotation.y = Math.PI/4;
+
+    casa.add(paredes, techo);
+    casa.position.set(x, y, z);
+    scene.add(casa);
+}
+
+function cargarVehiculo(x, y, z) {
+    const loader = new THREE.GLTFLoader();
+    // URL de ejemplo realista (reemplazar con sw4.glb)
+    loader.load('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb', (gltf) => {
+        sw4 = gltf.scene;
+        sw4.position.set(x, y, z);
+        sw4.scale.set(2, 2, 2);
+        scene.add(sw4);
+    });
+}
+
+function intentarSubir() {
+    if(!sw4) return;
+    const distancia = vaquero.position.distanceTo(sw4.position);
+    if(!isDriving && distancia < 5) {
+        isDriving = true;
+        vaquero.visible = false;
+    } else if(isDriving) {
+        isDriving = false;
+        vaquero.visible = true;
+        vaquero.position.copy(sw4.position).add(new THREE.Vector3(3,0,0));
+    }
+}
+
+function update() {
+    const target = isDriving ? sw4 : vaquero;
+    if(!target) return;
+
+    if(!isDriving) {
+        // Movimiento Humano
+        if(keys['KeyW']) vaquero.translateZ(0.15);
+        if(keys['KeyS']) vaquero.translateZ(-0.15);
+        if(keys['KeyA']) vaquero.rotation.y += 0.05;
+        if(keys['KeyD']) vaquero.rotation.y -= 0.05;
+    } else {
+        // Movimiento Camioneta
+        if(keys['KeyW']) sw4.translateZ(0.4);
+        if(keys['KeyS']) sw4.translateZ(-0.2);
+        if(keys['KeyA']) sw4.rotation.y += 0.03;
+        if(keys['KeyD']) sw4.rotation.y -= 0.03;
+    }
+
+    // CÁMARA QUE SIGUE (Suavemente)
+    const relativeCameraOffset = new THREE.Vector3(0, 5, 12);
+    const cameraOffset = relativeCameraOffset.applyMatrix4(target.matrixWorld);
+    camera.position.lerp(cameraOffset, 0.1);
+    controls.target.copy(target.position);
+    controls.update();
+}
+
 function animate() {
     requestAnimationFrame(animate);
+    update();
     renderer.render(scene, camera);
 }
