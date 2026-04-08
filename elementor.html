@@ -2,35 +2,33 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Elementor Pro | Agustín Admin</title>
+    <title>Elementor Admin | Agustín Pro</title>
     <style>
-        :root { --pink: #ff007f; --neon: #00d4ff; --bg: #050505; --dark: #0f0f0f; }
+        :root { --pink: #ff007f; --neon: #00d4ff; --bg: #050505; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
         
-        /* Panel Lateral Neón */
         #side-panel {
-            width: 300px; height: 100vh; background: var(--dark);
+            width: 300px; height: 100vh; background: #0a0a0a;
             border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 15px; z-index: 100;
-            box-shadow: 5px 0 20px rgba(255, 0, 127, 0.3);
+            display: flex; flex-direction: column; gap: 10px; z-index: 100;
+            box-shadow: 5px 0 20px rgba(255, 0, 127, 0.2);
         }
 
-        h2 { color: var(--pink); text-transform: uppercase; letter-spacing: 2px; font-size: 16px; text-align: center; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .cat { font-size: 9px; color: var(--neon); letter-spacing: 1px; font-weight: bold; text-transform: uppercase; margin-top: 10px; }
+        h2 { color: var(--pink); text-transform: uppercase; text-align: center; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
+        .cat { font-size: 9px; color: var(--neon); font-weight: bold; text-transform: uppercase; margin-top: 10px; }
         
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .item-btn {
-            background: #1a1a1a; border: 1px solid #333; color: #aaa; padding: 12px;
+            background: #111; border: 1px solid #333; color: #aaa; padding: 12px;
             border-radius: 6px; cursor: pointer; transition: 0.3s; font-size: 10px;
             display: flex; flex-direction: column; align-items: center; gap: 5px;
         }
         .item-btn:hover { border-color: var(--pink); color: white; }
         .item-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
-        .item-btn.borrador-btn.active { background: #ff4444; border-color: #ff4444; box-shadow: 0 0 15px #ff4444; }
+        .borrar-btn.active { background: #ff4444; border-color: #ff4444; box-shadow: 0 0 15px #ff4444; }
 
-        #view { flex-grow: 1; position: relative; }
-        #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px 15px; border-radius: 5px; color: var(--neon); font-size: 11px; border: 1px solid var(--neon); font-family: monospace; }
-        .hint { position: absolute; bottom: 20px; right: 20px; color: #666; font-size: 10px; pointer-events: none; }
+        #view { flex-grow: 1; position: relative; cursor: crosshair; }
+        #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: var(--neon); font-size: 11px; border: 1px solid var(--neon); }
     </style>
 </head>
 <body>
@@ -41,47 +39,38 @@
         <div class="cat">Herramientas</div>
         <div class="grid">
             <button class="item-btn active" onclick="sel('calle', this)">🛣️ CALLE</button>
-            <button class="item-btn borrador-btn" onclick="sel('borrar', this)">🗑️ BORRADOR</button>
+            <button class="item-btn borrar-btn" onclick="sel('borrar', this)">🗑️ BORRADOR</button>
         </div>
 
-        <div class="cat">Arquitectura</div>
+        <div class="cat">Objetos</div>
         <div class="grid">
-            <button class="item-btn" onclick="sel('casa', this)">🏠 CASA</button>
             <button class="item-btn" onclick="sel('estacion', this)">⛽ ESTACIÓN</button>
+            <button class="item-btn" onclick="sel('sw4', this)">🛻 SW4</button>
             <button class="item-btn" onclick="sel('farola', this)">💡 FAROLA</button>
             <button class="item-btn" onclick="sel('taller', this)">🔧 TALLER</button>
         </div>
 
-        <div class="cat">Entidades</div>
-        <div class="grid">
-            <button class="item-btn" onclick="sel('sw4', this)">🛻 SW4</button>
-            <button class="item-btn" onclick="sel('pino', this)">🌲 PINO</button>
-        </div>
-
-        <button onclick="limpiarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:10px; cursor:pointer; border-radius:6px; font-weight:bold; font-size:10px;">BORRAR TODO EL MAPA</button>
+        <button onclick="limpiarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:5px; font-weight:bold; font-size:10px;">BORRAR TODO</button>
     </div>
 
     <div id="view">
         <div id="status">MODO: COLOCAR | CALLE</div>
-        <div class="hint">Click Izq: Acción | Ruedita: Zoom | Click Der: Girar Cámara</div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-
     <script>
         let scene, camera, renderer, grid, raycaster, mouse;
         let currentType = 'calle';
         let zoomDist = 500;
         let camRot = 0.5;
         let isRightDown = false;
-        let objetosVisibles = []; // Para poder borrar
+        let meshList = []; // Para detectar clicks al borrar
 
         window.onload = () => { init(); animate(); renderExisting(); };
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0a);
-            
             camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 300) / window.innerHeight, 1, 10000);
             updateCamPos();
 
@@ -92,16 +81,11 @@
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const light = new THREE.DirectionalLight(0xffffff, 0.8);
-            light.position.set(200, 500, 200);
-            scene.add(light);
-
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             grid = new THREE.GridHelper(4000, 80, 0x333333, 0x222222);
             scene.add(grid);
 
-            // Interacciones
-            window.addEventListener('wheel', e => { zoomDist += e.deltaY * 0.5; zoomDist = Math.max(100, Math.min(2000, zoomDist)); updateCamPos(); });
+            window.addEventListener('wheel', e => { zoomDist += e.deltaY * 0.5; zoomDist = Math.max(100, 2000); updateCamPos(); });
             window.addEventListener('contextmenu', e => e.preventDefault());
             window.addEventListener('mousedown', e => { if(e.button === 2) isRightDown = true; });
             window.addEventListener('mouseup', e => { if(e.button === 2) isRightDown = false; });
@@ -133,23 +117,29 @@
             raycaster.setFromCamera(mouse, camera);
 
             if(currentType === 'borrar') {
-                // Lógica de Borrado
-                const hits = raycaster.intersectObjects(objetosVisibles, true);
+                const hits = raycaster.intersectObjects(meshList, true);
                 if(hits.length > 0) {
                     let target = hits[0].object;
                     while(target.parent && target.parent !== scene) target = target.parent;
-                    
                     const id = target.userData.id;
-                    borrarDeData(id);
+                    
+                    // Borrar de memoria y vista
+                    let data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+                    data = data.filter(item => item.id !== id);
+                    localStorage.setItem('elementos_ciudad', JSON.stringify(data));
+                    
                     scene.remove(target);
+                    meshList = meshList.filter(m => m !== target);
                 }
             } else {
-                // Lógica de Colocación
                 const hits = raycaster.intersectObject(grid);
                 if(hits.length > 0) {
                     const p = hits[0].point;
-                    const id = Date.now();
-                    const obj = { id, type: currentType, pos: { x: Math.round(p.x/10)*10, z: Math.round(p.z/10)*10 } };
+                    const obj = { 
+                        id: Date.now(), 
+                        type: currentType, 
+                        pos: { x: Math.round(p.x/10)*10, z: Math.round(p.z/10)*10 } 
+                    };
                     save(obj);
                 }
             }
@@ -162,35 +152,36 @@
             draw(obj);
         }
 
-        function borrarDeData(id) {
-            let data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data = data.filter(item => item.id !== id);
-            localStorage.setItem('elementos_ciudad', JSON.stringify(data));
-        }
-
         function draw(obj) {
             const group = new THREE.Group();
             group.position.set(obj.pos.x, 0, obj.pos.z);
             group.userData.id = obj.id;
 
+            let color = 0xff007f, geo;
+
             if (obj.type === 'calle') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(50, 0.4, 50), new THREE.MeshStandardMaterial({color: 0x111111}));
+                // Base Asfalto Negro
+                const base = new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), new THREE.MeshStandardMaterial({color: 0x111111}));
                 group.add(base);
-                const linea = new THREE.Mesh(new THREE.BoxGeometry(2, 0.2, 40), new THREE.MeshStandardMaterial({color: 0xFFD700}));
-                linea.position.y = 0.3;
+                // Línea Amarilla (Física)
+                const linea = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 50), new THREE.MeshStandardMaterial({color: 0xffff00}));
                 group.add(linea);
             } else if (obj.type === 'sw4') {
-                const body = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 16), new THREE.MeshStandardMaterial({color: 0xffffff}));
-                body.position.y = 2;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 20), new THREE.MeshStandardMaterial({color: 0xffffff}));
+                body.position.y = 2.5;
                 group.add(body);
+            } else if (obj.type === 'estacion') {
+                const techo = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 30), new THREE.MeshStandardMaterial({color: 0x00ff44}));
+                techo.position.y = 15;
+                group.add(techo);
             } else {
-                const cube = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({color: 0xff007f}));
-                cube.position.y = 5;
-                group.add(cube);
+                const box = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({color: color}));
+                box.position.y = 5;
+                group.add(box);
             }
 
             scene.add(group);
-            objetosVisibles.push(group);
+            meshList.push(group);
         }
 
         function renderExisting() {
@@ -199,7 +190,7 @@
         }
 
         function limpiarTodo() {
-            if(confirm("¿Borrar todo el mapa?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
+            if(confirm("¿Borrar todo?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
         }
 
         function animate() {
