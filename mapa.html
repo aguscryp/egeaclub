@@ -37,7 +37,7 @@
         let velocityY = 0; 
         let isGrounded = true;
         
-        let zoomDistance = 35;
+        let zoomDistance = 60; // Zoom inicial un poco más alejado por el tamaño
         let camRotationY = 0;
         let camRotationX = 0.5;
         let isRightClickDown = false;
@@ -86,7 +86,7 @@
             document.getElementById('p-nombre').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
             buildVaquero(config);
 
-            // --- MOTOR DE RENDERIZADO DE ELEMENTOR ---
+            // MOTOR DE RENDERIZADO DE ELEMENTOR
             cargarCiudad();
 
             // EVENTOS
@@ -94,7 +94,7 @@
             window.addEventListener('keyup', e => keys[e.code] = false);
             window.addEventListener('wheel', e => {
                 zoomDistance += e.deltaY * 0.05;
-                zoomDistance = Math.max(5, Math.min(300, zoomDistance));
+                zoomDistance = Math.max(10, Math.min(500, zoomDistance));
             });
             window.addEventListener('contextmenu', e => e.preventDefault());
             window.addEventListener('mousedown', e => { if(e.button === 2) isRightClickDown = true; });
@@ -111,7 +111,6 @@
             animate();
         }
 
-        // FUNCIÓN CLAVE: Construye los modelos detallados que vienen del Elementor
         function createDetailedModel(type) {
             const group = new THREE.Group();
             const mat = (c) => new THREE.MeshStandardMaterial({ color: c });
@@ -127,7 +126,6 @@
                 const glass = new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 7), mat(0x222222));
                 glass.position.set(0, 5, -1);
                 group.add(body, glass);
-                // Ruedas
                 const rGeo = new THREE.CylinderGeometry(1.5, 1.5, 1, 12);
                 for(let i=0; i<4; i++) {
                     const r = new THREE.Mesh(rGeo, mat(0x111111));
@@ -166,7 +164,6 @@
                 co.position.y = 12.5;
                 group.add(tr, co);
             }
-
             return group;
         }
 
@@ -183,21 +180,28 @@
             vaquero = new THREE.Group();
             const matColor = new THREE.MeshStandardMaterial({ color: config.color });
             const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-            const m = parseFloat(config.musculo);
             
-            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.5), matColor);
-            torso.position.y = 1.6;
-            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
-            cabeza.position.y = 2.5;
+            const escalaUser = 3.5; 
+            const m = parseFloat(config.musculo) * escalaUser;
+            const h = parseFloat(config.altura) * escalaUser;
 
-            const geoExt = new THREE.BoxGeometry(0.3 * m, 0.9, 0.3 * m);
-            pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.25, 0.5, 0);
-            pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.25, 0.5, 0);
-            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1, 0.25 * m), matPiel); bIzq.position.set(-0.6, 1.7, 0);
-            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1, 0.25 * m), matPiel); bDer.position.set(0.6, 1.7, 0);
+            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8 * m, 1.2 * h, 0.5 * m), matColor);
+            torso.position.y = (1.6 * h);
+            
+            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6 * m, 0.6 * m, 0.6 * m), matPiel);
+            cabeza.position.y = (2.5 * h);
+
+            const geoExt = new THREE.BoxGeometry(0.3 * m, 0.9 * h, 0.3 * m);
+            pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.3 * m, 0.5 * h, 0);
+            pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.3 * m, 0.5 * h, 0);
+            
+            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1 * h, 0.25 * m), matPiel); 
+            bIzq.position.set(-0.7 * m, 1.7 * h, 0);
+            
+            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1 * h, 0.25 * m), matPiel); 
+            bDer.position.set(0.7 * m, 1.7 * h, 0);
 
             vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
-            vaquero.scale.set(1, parseFloat(config.altura), 1);
             scene.add(vaquero);
         }
 
@@ -215,7 +219,7 @@
             
             if(vaquero) {
                 const isMoving = keys['KeyW'] || keys['KeyS'];
-                const speed = (keys['ShiftLeft'] ? 65 : 35) * delta;
+                const speed = (keys['ShiftLeft'] ? 120 : 60) * delta;
                 
                 if(keys['KeyW']) vaquero.translateZ(speed);
                 if(keys['KeyS']) vaquero.translateZ(-speed);
@@ -237,11 +241,11 @@
                 }
 
                 const x = vaquero.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX);
-                const y = vaquero.position.y + zoomDistance * Math.sin(camRotationX) + 5;
+                const y = vaquero.position.y + zoomDistance * Math.sin(camRotationX) + 12;
                 const z = vaquero.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX);
 
                 camera.position.set(x, y, z);
-                camera.lookAt(vaquero.position.x, vaquero.position.y + 3, vaquero.position.z);
+                camera.lookAt(vaquero.position.x, vaquero.position.y + 8, vaquero.position.z);
             }
             renderer.render(scene, camera);
         }
