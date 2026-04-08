@@ -2,72 +2,71 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Editor Operador | Sincronización 4D</title>
+    <title>Perfil Pro | Agustín ADN</title>
     <style>
-        :root { --pink: #ff007f; --dark: #0a0a0a; }
+        :root { --pink: #ff007f; --dark: #050505; }
         body { margin: 0; overflow: hidden; background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; display: flex; }
-        #ui { width: 380px; padding: 25px; background: rgba(15,15,15,0.95); border-right: 3px solid var(--pink); z-index: 10; overflow-y: auto; height: 100vh; }
-        h1 { color: var(--pink); font-size: 18px; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .op { margin-bottom: 15px; display: flex; flex-direction: column; }
-        label { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 5px; }
-        input, select { padding: 12px; background: #1a1a1a; color: white; border: 1px solid #333; border-radius: 4px; }
-        .btn { background: var(--pink); border: none; padding: 15px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; width: 100%; border-radius: 4px; transition: 0.3s; }
-        .btn:hover { background: #cc0066; box-shadow: 0 0 15px var(--pink); }
-        #canvas-container { flex: 1; cursor: grab; }
+        #ui { width: 350px; padding: 25px; background: rgba(10,10,10,0.95); border-right: 2px solid var(--pink); z-index: 100; height: 100vh; overflow-y: auto; }
+        h2 { color: var(--pink); text-transform: uppercase; font-size: 18px; letter-spacing: 2px; }
+        .op { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: #777; text-transform: uppercase; margin-bottom: 5px; }
+        select, input { width: 100%; padding: 12px; background: #111; border: 1px solid #333; color: white; border-radius: 5px; }
+        .btn { width: 100%; padding: 15px; background: var(--pink); border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 5px; margin-top: 10px; transition: 0.3s; }
+        .btn:hover { box-shadow: 0 0 15px var(--pink); }
+        #canvas-container { flex: 1; }
     </style>
 </head>
 <body>
     <div id="ui">
-        <h1>Configuración</h1>
-        <div class="op"><label>Color Principal</label><input type="color" id="charColor" value="#ff007f"></div>
-        <div class="op"><label>Ancho (Músculo)</label><input type="range" id="muscleWidth" min="0.8" max="1.6" step="0.1" value="1"></div>
-        <div class="op"><label>Altura</label><input type="range" id="charHeight" min="0.8" max="1.3" step="0.05" value="1"></div>
+        <h2>EDITOR ADN</h2>
+        <div class="op"><label>Color Equipación</label><input type="color" id="cColor" value="#ff007f"></div>
+        <div class="op"><label>Musculatura</label><input type="range" id="cMuscle" min="0.8" max="1.5" step="0.1" value="1"></div>
+        <div class="op"><label>Altura</label><input type="range" id="cHeight" min="0.8" max="1.3" step="0.05" value="1"></div>
         
-        <div class="op"><label>Calzado (15+ Modelos)</label>
-            <select id="shoeModel">
-                <option value="nike_tn">Nike TN Neón</option>
-                <option value="nike_air_max">Nike Air Max</option>
-                <option value="jordan_retro">Jordan Retro</option>
-                <option value="yeezy_boost">Yeezy Boost</option>
-                <option value="cyber_punk_2077">Cyber Edition</option>
-                <option value="luxury_gold">Luxury Gold</option>
-                <option value="neon_flow_special">Neon Flow Spec</option>
-            </select>
-        </div>
-
-        <div class="op"><label>Accesorios Cabeza</label>
-            <select id="hatModel">
+        <div class="op"><label>Accesorio Cabeza</label>
+            <select id="cHat">
                 <option value="none">Ninguno</option>
                 <optgroup label="Sombreros">
-                    <option value="cowboy_classic">Cowboy Classic</option>
+                    <option value="cowboy_classic">Cowboy</option>
                     <option value="texano_pink">Texano Pink</option>
                     <option value="mafia_boss">Mafia Boss</option>
+                    <option value="top_hat">Galeón Negro</option>
                 </optgroup>
                 <optgroup label="Gorras">
-                    <option value="cap_urban">Gorra Urbana</option>
-                    <option value="cap_neon">Gorra Neón</option>
+                    <option value="cap_urban">Urbana Black</option>
+                    <option value="cap_neon">Neon Flow</option>
                     <option value="cap_flat">Gorra Plana</option>
                 </optgroup>
             </select>
         </div>
-        <button class="btn" onclick="save()">GUARDAR ADN</button>
+
+        <div class="op"><label>Zapatillas</label>
+            <select id="cShoe">
+                <option value="nike_tn">Nike TN</option>
+                <option value="nike_air_max">Air Max</option>
+                <option value="neon_flow_special">Neon Special</option>
+                <option value="cyber_punk_2077">Cyber Edition</option>
+                <option value="jordan_retro">Jordan Retro</option>
+            </select>
+        </div>
+        <button class="btn" onclick="save()">GUARDAR Y SINCRONIZAR</button>
     </div>
     <div id="canvas-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="zapatillas.js"></script>
     <script src="sombreros.js"></script>
-
     <script>
         let scene, camera, renderer, vaquero;
+
         function init() {
             scene = new THREE.Scene();
-            camera = new THREE.PerspectiveCamera(45, (window.innerWidth-380)/window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.8, 5);
+            camera = new THREE.PerspectiveCamera(45, (window.innerWidth-350)/window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 5);
             renderer = new THREE.WebGLRenderer({antialias: true});
-            renderer.setSize(window.innerWidth - 380, window.innerHeight);
+            renderer.setSize(window.innerWidth-350, window.innerHeight);
             document.getElementById('canvas-container').appendChild(renderer.domElement);
-            scene.add(new THREE.AmbientLight(0xffffff, 1));
+            scene.add(new THREE.AmbientLight(0xffffff, 1.2));
             build();
             document.querySelectorAll('input, select').forEach(el => el.oninput = build);
             animate();
@@ -76,53 +75,52 @@
         function build() {
             if(vaquero) scene.remove(vaquero);
             vaquero = new THREE.Group();
-            const config = {
-                color: document.getElementById('charColor').value,
-                m: parseFloat(document.getElementById('muscleWidth').value),
-                h: parseFloat(document.getElementById('charHeight').value),
-                z: document.getElementById('shoeModel').value,
-                s: document.getElementById('hatModel').value
-            };
-
-            const matR = new THREE.MeshStandardMaterial({color: config.color});
+            const color = document.getElementById('cColor').value;
+            const muscle = parseFloat(document.getElementById('cMuscle').value);
+            const height = parseFloat(document.getElementById('cHeight').value);
+            const matR = new THREE.MeshStandardMaterial({color: color});
             const matP = new THREE.MeshStandardMaterial({color: 0xffe0bd});
-            
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8*config.m, 1.2, 0.5), matR); torso.position.y = 1.6;
+
+            // Cuerpo
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8*muscle, 1.2, 0.5), matR); torso.position.y = 1.6;
             const cab = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matP); cab.position.y = 2.5;
             
-            // Sombrero
-            if(config.s !== 'none') {
-                const hat = GaleriaSombreros[config.s](config.color);
-                hat.scale.set(0.15, 0.15, 0.15);
-                hat.position.y = 0.35;
-                cab.add(hat);
+            // ANCLAJE DE SOMBRERO (A la cabeza directamente)
+            const hatID = document.getElementById('cHat').value;
+            if(hatID !== 'none' && GaleriaSombreros[hatID]) {
+                const hat = GaleriaSombreros[hatID](color);
+                hat.scale.set(0.12, 0.12, 0.12);
+                hat.position.y = 0.32; // Sobre el tope de la cabeza
+                cab.add(hat); // Se ancla a la cabeza
             }
 
             const pI = new THREE.Group(); const pD = new THREE.Group();
-            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.32*config.m, 1, 0.32), matR);
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.32*muscle, 1, 0.32), matR);
             pI.add(leg.clone()); pD.add(leg.clone());
             pI.position.set(-0.25, 0.6, 0); pD.position.set(0.25, 0.6, 0);
             
-            const zI = GaleriaZapatillas[config.z](config.color);
-            const zD = GaleriaZapatillas[config.z](config.color);
+            // Zapatillas
+            const shoeID = document.getElementById('cShoe').value;
+            const zI = GaleriaZapatillas[shoeID](color); 
+            const zD = GaleriaZapatillas[shoeID](color);
             zI.position.y = -0.55; zD.position.y = -0.55;
             pI.add(zI); pD.add(zD);
 
             vaquero.add(torso, cab, pI, pD);
-            vaquero.scale.y = config.h;
+            vaquero.scale.y = height;
             scene.add(vaquero);
         }
 
         function save() {
             const data = {
-                color: document.getElementById('charColor').value,
-                musculo: document.getElementById('muscleWidth').value,
-                altura: document.getElementById('charHeight').value,
-                zapato: document.getElementById('shoeModel').value,
-                sombrero: document.getElementById('hatModel').value
+                color: document.getElementById('cColor').value,
+                musculo: document.getElementById('cMuscle').value,
+                altura: document.getElementById('cHeight').value,
+                zapato: document.getElementById('cShoe').value,
+                sombrero: document.getElementById('cHat').value
             };
             localStorage.setItem('playerConfig', JSON.stringify(data));
-            alert("Operador Sincronizado correctamente.");
+            alert("ADN de Agustín guardado con éxito.");
         }
 
         function animate() { requestAnimationFrame(animate); if(vaquero) vaquero.rotation.y += 0.01; renderer.render(scene, camera); }
