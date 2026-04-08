@@ -2,28 +2,36 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Persistente | Agustín</title>
+    <title>Mundo Persistente | Agustín Pro</title>
     <style>
         :root { --pink: #ff007f; --neon: #00d4ff; }
         body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Interfaz de Usuario (HUD) */
         #hud {
             position: absolute; top: 20px; left: 20px; padding: 20px;
             background: rgba(10, 10, 10, 0.9); border-left: 5px solid var(--pink);
             color: white; z-index: 100; border-radius: 0 10px 10px 0;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
+        #p-nombre { font-weight: bold; font-size: 18px; text-transform: uppercase; letter-spacing: 1px; }
+        #p-estado { font-size: 11px; color: var(--neon); margin-top: 5px; font-weight: bold; }
+
+        /* Aviso de interacción */
         #prompt {
             position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
             background: var(--pink); color: white; padding: 12px 25px;
             border-radius: 8px; font-weight: bold; display: none; z-index: 100;
             box-shadow: 0 0 20px var(--pink); border: 2px solid white;
+            text-transform: uppercase; font-size: 14px;
         }
     </style>
 </head>
 <body>
 
     <div id="hud">
-        <div id="p-nombre" style="font-weight: bold; font-size: 20px;">OPERADOR</div>
-        <div id="p-estado" style="font-size: 10px; color: var(--neon); margin-top:5px;">A PIE</div>
+        <div id="p-nombre">OPERADOR: <span id="display-name">AGUSTÍN</span></div>
+        <div id="p-estado">ESTADO: A PIE</div>
     </div>
 
     <div id="prompt">PRESIONA [F] PARA CONDUCIR</div>
@@ -33,82 +41,106 @@
     <script>
         let scene, camera, renderer, vaquero, clock;
         let keys = {};
-        let zoomDistance = 120;
-        let camRotationY = 0;
-        let camRotationX = 0.5;
-        let isRightClickDown = false;
+        let zoomDistance = 120, camRotationY = 0, camRotationX = 0.5, isRightClickDown = false;
+        let autos = [], autoActual = null, carSpeed = 0;
 
-        let autos = [];
-        let autoActual = null;
-        let carSpeed = 0;
-
-        // FÁBRICA DE OBJETOS (Copia exacta de Elementor para que se vea igual)
+        // --- 1. LÓGICA DE ELEMENTOR: CONSTRUCCIÓN DE OBJETOS ---
         function createModel(type) {
             const group = new THREE.Group();
             const mat = (c, metal = 0) => new THREE.MeshStandardMaterial({ color: c, metalness: metal, roughness: 0.5 });
 
             if(type === 'calle') {
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), mat(0x111111)));
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 50), mat(0xffff00)));
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), mat(0x111111)));
+                const linea = new THREE.Mesh(new THREE.BoxGeometry(4, 1.1, 100), mat(0xffff00));
+                group.add(linea);
             } 
             else if(type === 'camion') {
                 const cab = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), mat(0x333333, 0.7)); cab.position.y = 5;
                 const mot = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), mat(0x333333, 0.7)); mot.position.set(0, 3.5, 9);
                 const trailer = new THREE.Mesh(new THREE.BoxGeometry(11, 12, 32), mat(0xaaaaaa, 0.1)); trailer.position.set(0, 8, -11);
                 group.add(cab, mot, trailer);
+                // Ruedas Camión
                 [[5,2.2,12], [-5,2.2,12], [5,2.2,-5], [-5,2.2,-5], [5,2.2,-25], [-5,2.2,-25]].forEach(p => {
-                    const w = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 1.5, 12), mat(0x111111));
-                    w.rotation.z = Math.PI/2; w.position.set(p[0], p[1], p[2]); group.add(w);
+                    const w = new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,2,12), mat(0x000000));
+                    w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]); group.add(w);
                 });
                 group.userData.isVehicle = true; group.userData.isTruck = true;
             }
             else if(type === 'auto_conducible') {
-                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 18), mat(0xff0044, 0.4)); body.position.y = 2.5;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 18), mat(0xff0044, 0.5)); body.position.y = 2.5;
                 group.add(body);
+                // Ruedas Auto
+                [[5,1.6,6],[-5,1.6,6],[5,1.6,-6],[-5,1.6,-6]].forEach(p => {
+                    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,1.5,12), mat(0x000000));
+                    w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]); group.add(w);
+                });
                 group.userData.isVehicle = true;
-                const rG = new THREE.CylinderGeometry(1.6, 1.6, 1.2, 12);
-                for(let i=0; i<4; i++) {
-                    const r = new THREE.Mesh(rG, mat(0x111111)); r.rotation.z = Math.PI/2; r.position.set(i%2?5:-5, 1.6, i<2?6:-6);
-                    group.add(r);
-                }
             }
             else if(type === 'luz_led') {
-                const p = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 45), mat(0x333333)); p.position.y = 22.5;
-                const c = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 7), mat(0xffffff)); c.position.set(0, 45, 3);
-                group.add(p, c);
-            }
-            else if(type === 'palmera') {
-                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 35), mat(0x4b3621)); t.position.y = 17.5;
-                const c = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), mat(0x228b22)); c.position.y = 35;
-                group.add(t, c);
+                const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 45), mat(0x333333)); poste.position.y = 22.5;
+                const foco = new THREE.Mesh(new THREE.BoxGeometry(4, 1.5, 8), mat(0xffffff)); foco.position.set(0, 45, 4);
+                group.add(poste, foco);
             }
             else if(type === 'vereda') {
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 15), mat(0x444444)));
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(100, 2, 25), mat(0x444444)));
             }
             return group;
         }
 
+        // --- 2. LÓGICA DE PERFIL: CONSTRUCCIÓN DEL PERSONAJE ---
+        function buildAgustinFromProfile() {
+            const config = JSON.parse(localStorage.getItem('playerConfig')) || { color: "#ff007f", musculo: 1, altura: 1 };
+            
+            vaquero = new THREE.Group();
+            const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+            const matRopa = new THREE.MeshStandardMaterial({ color: config.color });
+            const m = parseFloat(config.musculo);
+
+            // Torso (Ancho afectado por musculatura)
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(4 * m, 6, 2.5 * m), matRopa);
+            torso.position.y = 8;
+            
+            // Cabeza
+            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), matPiel);
+            cabeza.position.y = 12.5;
+
+            // Piernas
+            const pI = new THREE.Mesh(new THREE.BoxGeometry(1.6 * m, 5, 1.6 * m), matRopa); pI.position.set(-1.2 * m, 2.5, 0);
+            const pD = new THREE.Mesh(new THREE.BoxGeometry(1.6 * m, 5, 1.6 * m), matRopa); pD.position.set(1.2 * m, 2.5, 0);
+            
+            // Brazos
+            const bI = new THREE.Mesh(new THREE.BoxGeometry(1.3 * m, 5, 1.3 * m), matPiel); bI.position.set(-3 * m, 8.5, 0);
+            const bD = new THREE.Mesh(new THREE.BoxGeometry(1.3 * m, 5, 1.3 * m), matPiel); bD.position.set(3 * m, 8.5, 0);
+
+            vaquero.add(torso, cabeza, pI, pD, bI, bD);
+            vaquero.scale.y = parseFloat(config.altura); // Altura total
+            
+            scene.add(vaquero);
+            document.getElementById('display-name').innerText = localStorage.getItem('currentUser') || "AGUSTÍN";
+        }
+
+        // --- 3. INICIALIZACIÓN Y MOTOR ---
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
             clock = new THREE.Clock();
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 20000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 30000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(500, 1000, 500);
+            sun.position.set(1000, 1000, 1000);
             scene.add(sun);
 
-            const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshStandardMaterial({ color: 0x3d4d21 }));
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), new THREE.MeshStandardMaterial({ color: 0x3d4d21 }));
             ground.rotation.x = -Math.PI / 2;
             scene.add(ground);
 
-            buildAgustin(); // Tu personaje de perfil
-            cargarCiudad();
+            buildAgustinFromProfile(); 
+            cargarMapaDesdeElementor();
 
             window.addEventListener('keydown', e => { keys[e.code] = true; if(e.code === 'KeyF') toggleVehiculo(); });
             window.addEventListener('keyup', e => keys[e.code] = false);
@@ -116,30 +148,15 @@
             window.addEventListener('mouseup', e => { if(e.button === 2) isRightClickDown = false; });
             window.addEventListener('mousemove', e => {
                 if(isRightClickDown) {
-                    camRotationY -= e.movementX * 0.01;
-                    camRotationX = Math.max(0.05, Math.min(1.5, camRotationX + e.movementY * 0.01));
+                    camRotationY -= e.movementX * 0.005;
+                    camRotationX = Math.max(0.1, Math.min(1.4, camRotationX + e.movementY * 0.005));
                 }
             });
 
             animate();
         }
 
-        function buildAgustin() {
-            vaquero = new THREE.Group();
-            const matPiel = new THREE.MeshStandardMaterial({color: 0xffdbac});
-            const matRopa = new THREE.MeshStandardMaterial({color: 0xff007f}); // Rosa Agustín
-
-            // Cuerpo básico (Esto lo puedes reemplazar por tu skin de perfil.html)
-            const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(4, 6, 2), matRopa);
-            cuerpo.position.y = 6;
-            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.5, 2.5), matPiel);
-            cabeza.position.y = 10.5;
-            
-            vaquero.add(cuerpo, cabeza);
-            scene.add(vaquero);
-        }
-
-        function cargarCiudad() {
+        function cargarMapaDesdeElementor() {
             const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
             data.forEach(item => {
                 const model = createModel(item.type);
@@ -151,19 +168,15 @@
 
         function toggleVehiculo() {
             if(autoActual) {
-                const offset = new THREE.Vector3(15, 0, 0).applyQuaternion(autoActual.quaternion);
+                const offset = new THREE.Vector3(20, 0, 0).applyQuaternion(autoActual.quaternion);
                 vaquero.position.copy(autoActual.position).add(offset);
-                vaquero.position.y = 0;
-                autoActual = null;
-                vaquero.visible = true;
-                document.getElementById('p-estado').innerText = "A PIE";
+                vaquero.position.y = 0; autoActual = null; vaquero.visible = true;
+                document.getElementById('p-estado').innerText = "ESTADO: A PIE";
             } else {
                 autos.forEach(a => {
-                    if(vaquero.position.distanceTo(a.position) < 40) {
-                        autoActual = a;
-                        vaquero.visible = false;
-                        document.getElementById('p-estado').innerText = "CONDUCIENDO";
-                        carSpeed = 0;
+                    if(vaquero.position.distanceTo(a.position) < 45) {
+                        autoActual = a; vaquero.visible = false;
+                        document.getElementById('p-estado').innerText = "ESTADO: CONDUCIENDO"; carSpeed = 0;
                     }
                 });
             }
@@ -174,32 +187,34 @@
             const delta = clock.getDelta();
 
             if(autoActual) {
-                const maxSpd = autoActual.userData.isTruck ? 110 : 190;
-                const accel = autoActual.userData.isTruck ? 1.5 : 5;
+                const maxSpd = autoActual.userData.isTruck ? 115 : 200;
+                const accel = autoActual.userData.isTruck ? 1.8 : 6;
 
                 if(keys['KeyW']) carSpeed = Math.min(carSpeed + accel, maxSpd);
-                else if(keys['KeyS']) carSpeed = Math.max(carSpeed - accel, -60);
+                else if(keys['KeyS']) carSpeed = Math.max(carSpeed - accel, -70);
                 else carSpeed *= 0.98;
 
-                if(keys['KeyA']) autoActual.rotation.y += 0.03;
-                if(keys['KeyD']) autoActual.rotation.y -= 0.03;
+                if(keys['KeyA']) autoActual.rotation.y += 0.035;
+                if(keys['KeyD']) autoActual.rotation.y -= 0.035;
 
                 autoActual.translateZ(carSpeed * delta);
-                camera.position.lerp(new THREE.Vector3(
+                
+                const targetCam = new THREE.Vector3(
                     autoActual.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX),
-                    autoActual.position.y + zoomDistance * Math.sin(camRotationX) + 25,
+                    autoActual.position.y + zoomDistance * Math.sin(camRotationX) + 20,
                     autoActual.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX)
-                ), 0.1);
+                );
+                camera.position.lerp(targetCam, 0.1);
                 camera.lookAt(autoActual.position);
-            } else {
-                const speed = (keys['ShiftLeft'] ? 130 : 65) * delta;
+            } else if (vaquero) {
+                const speed = (keys['ShiftLeft'] ? 140 : 70) * delta;
                 if(keys['KeyW']) vaquero.translateZ(speed);
                 if(keys['KeyS']) vaquero.translateZ(-speed);
-                if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
-                if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
+                if(keys['KeyA']) vaquero.rotation.y += 3.5 * delta;
+                if(keys['KeyD']) vaquero.rotation.y -= 3.5 * delta;
 
                 let cerca = false;
-                autos.forEach(a => { if(vaquero.position.distanceTo(a.position) < 40) cerca = true; });
+                autos.forEach(a => { if(vaquero.position.distanceTo(a.position) < 45) cerca = true; });
                 document.getElementById('prompt').style.display = cerca ? "block" : "none";
 
                 camera.position.set(
