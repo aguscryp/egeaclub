@@ -2,241 +2,77 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Configuración de Operador | Cowboy Engine</title>
+    <title>Perfil Pro | Agustín Engine</title>
     <style>
-        :root { --pink: #ff007f; --neon: 0 0 15px #ff007f; }
-        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: 'Segoe UI', sans-serif; display: flex; }
-        
-        #ui-panel {
-            width: 350px; height: 100vh; background: rgba(10, 10, 10, 0.95);
-            border-right: 2px solid var(--pink); box-shadow: var(--neon);
-            padding: 30px; box-sizing: border-box; z-index: 10;
-            display: flex; flex-direction: column; gap: 15px; backdrop-filter: blur(10px);
-        }
-
-        h1 { color: var(--pink); text-transform: uppercase; letter-spacing: 2px; font-size: 18px; border-bottom: 1px solid #333; padding-bottom: 10px; margin: 0; }
-        
-        .control-group { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 11px; color: #888; text-transform: uppercase; font-weight: bold; }
-        
-        input, select { width: 100%; padding: 10px; border: 1px solid #333; background: #111; color: white; border-radius: 5px; cursor: pointer; }
-        input[type="range"] { accent-color: var(--pink); }
-
-        .stats-display { background: #111; padding: 15px; border-radius: 8px; border-left: 3px solid var(--pink); font-size: 12px; margin-top: 10px; }
-        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .val { color: var(--pink); font-weight: bold; }
-
-        .btn-ready {
-            background: var(--pink); color: white; border: none; padding: 15px;
-            border-radius: 5px; font-weight: bold; cursor: pointer;
-            text-transform: uppercase; margin-top: auto; transition: 0.3s;
-        }
-        .btn-ready:hover { box-shadow: var(--neon); transform: scale(1.02); }
-
-        #canvas-container { flex: 1; height: 100vh; position: relative; }
+        :root { --pink: #ff007f; }
+        body { margin: 0; overflow: hidden; background: #050505; color: white; font-family: sans-serif; display: flex; }
+        #ui { width: 350px; padding: 30px; background: rgba(10,10,10,0.9); border-right: 2px solid var(--pink); z-index: 10; }
+        h1 { color: var(--pink); font-size: 20px; text-transform: uppercase; }
+        .op { margin-bottom: 20px; display: flex; flex-direction: column; }
+        input, select { padding: 10px; background: #111; color: white; border: 1px solid #333; border-radius: 5px; margin-top: 5px; }
+        .btn { background: var(--pink); border: none; padding: 15px; color: white; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; border-radius: 5px; }
+        #canvas-container { flex: 1; }
     </style>
 </head>
 <body>
-
-    <div id="ui-panel">
-        <h1>Operador: <span id="userName">Agustín</span></h1>
-
-        <div class="control-group">
-            <label>Color de Equipación</label>
-            <input type="color" id="charColor" value="#ff007f">
-        </div>
-
-        <div class="control-group">
-            <label>Musculatura</label>
-            <input type="range" id="muscleWidth" min="0.7" max="1.5" step="0.1" value="1">
-        </div>
-
-        <div class="control-group">
-            <label>Altura del Sujeto</label>
-            <input type="range" id="charHeight" min="0.8" max="1.3" step="0.05" value="1">
-        </div>
-
-        <div class="control-group">
-            <label>Calzado (Nike / Adidas)</label>
+    <div id="ui">
+        <h1>Editor Operador</h1>
+        <div class="op"><label>Color Equipación</label><input type="color" id="charColor" value="#ff007f"></div>
+        <div class="op"><label>Musculatura</label><input type="range" id="muscleWidth" min="0.7" max="1.5" step="0.1" value="1"></div>
+        <div class="op"><label>Altura</label><input type="range" id="charHeight" min="0.8" max="1.3" step="0.05" value="1"></div>
+        <div class="op"><label>Calzado</label>
             <select id="shoeModel">
-                <option value="nike_tn">Nike TN (Neon Glow)</option>
-                <option value="adidas_classic">Adidas Classic (White)</option>
-                <option value="boots">Botas Tácticas (Black)</option>
+                <option value="nike_tn">Nike TN Neón</option>
+                <option value="adidas_classic">Adidas Classic</option>
+                <option value="boots">Botas Tácticas</option>
             </select>
         </div>
-
-        <div class="stats-display">
-            <div class="stat-row"><span>Estado:</span> <span class="val" id="move-status">IDLE</span></div>
-            <div class="stat-row"><span>Zoom:</span> <span class="val" id="zoom-val">7.0</span></div>
-        </div>
-
-        <button class="btn-ready" onclick="finalizeAndStart()">Desplegar en Mapa</button>
+        <button class="btn" onclick="save()">GUARDAR Y SALIR</button>
     </div>
-
     <div id="canvas-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
+    <script src="zapatillas.js"></script>
     <script>
-        let scene, camera, renderer, vaquero, clock;
-        let torso, pIzq, pDer, bIzq, bDer;
-        let keys = {};
-        let walkCycle = 0;
-        let idleTimer = 0;
-        let baseZoom = 7;
-
-        function initEditor() {
-            const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, vaquero, pI, pD;
+        function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050505);
-            clock = new THREE.Clock();
-
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(0, 3, baseZoom);
-
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.appendChild(renderer.domElement);
-
-            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-            const sun = new THREE.PointLight(0xffffff, 1);
-            sun.position.set(5, 10, 5);
-            scene.add(sun);
-
-            scene.add(new THREE.GridHelper(20, 40, 0x222222, 0x111111));
-
-            buildCharacter();
-
-            // Listeners
-            document.getElementById('charColor').addEventListener('input', updateChar);
-            document.getElementById('muscleWidth').addEventListener('input', updateChar);
-            document.getElementById('charHeight').addEventListener('input', updateChar);
-            document.getElementById('shoeModel').addEventListener('change', updateChar);
-            
-            window.addEventListener('keydown', e => keys[e.code] = true);
-            window.addEventListener('keyup', e => keys[e.code] = false);
-            
-            container.addEventListener('wheel', e => {
-                baseZoom = Math.max(3, Math.min(15, baseZoom + e.deltaY * 0.01));
-                document.getElementById('zoom-val').innerText = baseZoom.toFixed(1);
-            });
-
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 6);
+            renderer = new THREE.WebGLRenderer({antialias: true});
+            renderer.setSize(window.innerWidth - 350, window.innerHeight);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            build();
+            document.querySelectorAll('input, select').forEach(el => el.oninput = build);
             animate();
         }
-
-        function buildCharacter() {
+        function build() {
             if(vaquero) scene.remove(vaquero);
             vaquero = new THREE.Group();
-            
             const color = document.getElementById('charColor').value;
             const muscle = parseFloat(document.getElementById('muscleWidth').value);
-            const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-            const matRopa = new THREE.MeshStandardMaterial({ color: color });
+            const matRopa = new THREE.MeshStandardMaterial({color: color});
+            const matPiel = new THREE.MeshStandardMaterial({color: 0xffe0bd});
+            
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8*muscle, 1.2, 0.5), matRopa); torso.position.y = 1.6;
+            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel); cabeza.position.y = 2.5;
+            pI = new THREE.Group(); pD = new THREE.Group();
+            const pierna = new THREE.Mesh(new THREE.BoxGeometry(0.3*muscle, 0.9, 0.3), matRopa);
+            pI.add(pierna.clone()); pD.add(pierna.clone());
+            pI.position.set(-0.25, 0.7, 0); pD.position.set(0.25, 0.7, 0);
+            
+            // Cargar desde zapatillas.js
+            const mod = document.getElementById('shoeModel').value;
+            const zI = GaleriaZapatillas[mod](color); const zD = GaleriaZapatillas[mod](color);
+            zI.position.y = -0.5; zD.position.y = -0.5;
+            pI.add(zI); pD.add(zD);
 
-            // Torso
-            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8 * muscle, 1.2, 0.5 * muscle), matRopa);
-            torso.position.y = 1.6;
-
-            // Cabeza
-            const cabeza = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matPiel);
-            cabeza.position.y = 2.5;
-
-            // Piernas (Grupos para rotar desde la cadera)
-            pIzq = new THREE.Group(); pDer = new THREE.Group();
-            const geoPierna = new THREE.BoxGeometry(0.3 * muscle, 0.9, 0.3 * muscle);
-            const piernaI = new THREE.Mesh(geoPierna, matRopa);
-            const piernaD = new THREE.Mesh(geoPierna, matRopa);
-            pIzq.add(piernaI); pDer.add(piernaD);
-            pIzq.position.set(-0.25, 0.7, 0); pDer.position.set(0.25, 0.7, 0);
-
-            // Brazos
-            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25 * muscle, 1, 0.25 * muscle), matPiel);
-            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * muscle, 1, 0.25 * muscle), matPiel);
-            bIzq.position.set(-0.6, 1.7, 0); bDer.position.set(0.6, 1.7, 0);
-
-            // Calzado
-            addShoes(pIzq, pDer, color);
-
-            vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
+            vaquero.add(torso, cabeza, pI, pD);
             vaquero.scale.y = parseFloat(document.getElementById('charHeight').value);
             scene.add(vaquero);
         }
-
-        function addShoes(pL, pR, color) {
-            const model = document.getElementById('shoeModel').value;
-            const createShoe = () => {
-                const g = new THREE.Group();
-                if(model === 'nike_tn') {
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.5), new THREE.MeshStandardMaterial({color: 0x111111}));
-                    const s = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.06, 0.52), new THREE.MeshStandardMaterial({
-                        color: color, emissive: color, emissiveIntensity: 1.5
-                    }));
-                    s.position.y = -0.1; g.add(b, s);
-                } else if(model === 'adidas_classic') {
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.2, 0.5), new THREE.MeshStandardMaterial({color: 0xffffff}));
-                    const s = new THREE.Mesh(new THREE.BoxGeometry(0.37, 0.1, 0.2), new THREE.MeshStandardMaterial({color: 0x111111}));
-                    g.add(b, s);
-                } else {
-                    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.35, 0.55), new THREE.MeshStandardMaterial({color: 0x222222})));
-                }
-                g.position.set(0, -0.45, 0.1);
-                return g;
-            };
-            pL.add(createShoe()); pR.add(createShoe());
-        }
-
-        function updateChar() { buildCharacter(); }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-            const time = Date.now() * 0.002;
-            let isMoving = false;
-
-            if(vaquero) {
-                const speed = (keys['ShiftLeft'] ? 0.15 : 0.07);
-                if(keys['KeyW']) { vaquero.translateZ(speed); isMoving = true; }
-                if(keys['KeyS']) { vaquero.translateZ(-speed); isMoving = true; }
-                if(keys['KeyA']) { vaquero.rotation.y += 0.05; isMoving = true; }
-                if(keys['KeyD']) { vaquero.rotation.y -= 0.05; isMoving = true; }
-
-                document.getElementById('move-status').innerText = isMoving ? (keys['ShiftLeft']?"SPRINT":"WALK") : "IDLE";
-
-                if(isMoving) {
-                    idleTimer = 0;
-                    walkCycle += keys['ShiftLeft'] ? 0.25 : 0.15;
-                    pIzq.rotation.x = Math.sin(walkCycle) * 0.6;
-                    pDer.rotation.x = -Math.sin(walkCycle) * 0.6;
-                    bIzq.rotation.x = -Math.sin(walkCycle) * 0.6;
-                    bDer.rotation.x = Math.sin(walkCycle) * 0.6;
-                    torso.position.y = 1.6 + Math.abs(Math.cos(walkCycle)) * 0.05;
-                    
-                    // Cámara Pro: Zoom dinámico y Shake al correr
-                    let targetZoom = keys['ShiftLeft'] ? baseZoom + 1.5 : baseZoom;
-                    camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetZoom, 0.1);
-                    if(keys['ShiftLeft']) {
-                        camera.position.x += (Math.random()-0.5)*0.03;
-                        camera.position.y += 3 + (Math.random()-0.5)*0.03;
-                    }
-                } else {
-                    idleTimer += delta;
-                    pIzq.rotation.x *= 0.9; pDer.rotation.x *= 0.9;
-                    bIzq.rotation.x *= 0.9; bDer.rotation.x *= 0.9;
-                    torso.scale.x = 1 + Math.sin(time) * 0.02;
-
-                    // Cámara Pro: Zoom a la cara si está IDLE
-                    if(idleTimer > 5) {
-                        camera.position.lerp(new THREE.Vector3(0, 2.5, 3), 0.03);
-                        camera.lookAt(0, 2.3, 0);
-                    } else {
-                        camera.position.lerp(new THREE.Vector3(0, 3, baseZoom), 0.05);
-                    }
-                }
-            }
-            renderer.render(scene, camera);
-        }
-
-        function finalizeAndStart() {
+        function save() {
             const config = {
                 color: document.getElementById('charColor').value,
                 musculo: document.getElementById('muscleWidth').value,
@@ -244,10 +80,10 @@
                 zapato: document.getElementById('shoeModel').value
             };
             localStorage.setItem('playerConfig', JSON.stringify(config));
-            window.location.href = "mapa.html";
+            alert("Sincronizado");
         }
-
-        window.onload = initEditor;
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        init();
     </script>
 </body>
 </html>
