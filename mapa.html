@@ -2,37 +2,36 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Agustín | Motor Sincronizado</title>
+    <title>Mundo 4D | Agustín Engine</title>
     <style>body { margin: 0; overflow: hidden; background: #000; }</style>
 </head>
 <body>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="mapalisto.js"></script>
-    <script src="fabrica.js"></script>
     <script src="zapatillas.js"></script>
     <script src="sombreros.js"></script>
     <script src="movimiento.js"></script>
-
+    
     <script>
         let scene, camera, renderer, vaquero, clock = new THREE.Clock(), keys = {};
 
         function init() {
             scene = new THREE.Scene();
-            // Lógica Mapalisto (Cielo y Niebla)
+            
+            // Configuración desde Mapalisto
             scene.background = new THREE.Color(MundoConfig.ambiente.niebla.color);
             scene.fog = new THREE.FogExp2(MundoConfig.ambiente.niebla.color, MundoConfig.ambiente.niebla.densidad);
             
-            const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+            const sun = new THREE.DirectionalLight(0xffffff, 1.4);
             sun.position.set(500, 1000, 500);
-            scene.add(sun, new THREE.AmbientLight(0xffffff, 0.7));
+            scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
 
-            // Suelo Sagrado
+            // Suelo Sincronizado
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({color: MundoConfig.terreno.colorPasto}));
             ground.rotation.x = -Math.PI/2;
             scene.add(ground);
 
-            spawnAgustin();
-            cargarEntorno();
+            spawnPlayer();
 
             renderer = new THREE.WebGLRenderer({antialias: true});
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -44,22 +43,23 @@
             animate();
         }
 
-        function spawnAgustin() {
+        function spawnPlayer() {
             const config = JSON.parse(localStorage.getItem('playerConfig')) || {color: "#ff007f", zapato: "nike_tn", sombrero: "none", musculo: 1, altura: 1};
             vaquero = new THREE.Group();
             const m = parseFloat(config.musculo);
             const matR = new THREE.MeshStandardMaterial({color: config.color});
             const matP = new THREE.MeshStandardMaterial({color: 0xffe0bd});
 
+            // Estructura Profesional (Indices para movimiento.js)
             const torso = new THREE.Mesh(new THREE.BoxGeometry(4*m, 6, 2.5), matR); torso.position.y = 8;
             const cab = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), matP); cab.position.y = 12.5;
             
-            // Carga de Sombrero
-            if(config.sombrero !== 'none') {
+            // ANCLAJE DE SOMBRERO (A la cabeza del mapa)
+            if(config.sombrero !== 'none' && GaleriaSombreros[config.sombrero]) {
                 const hat = GaleriaSombreros[config.sombrero](config.color);
                 hat.scale.set(1.1, 1.1, 1.1);
-                hat.position.y = 1.8;
-                cab.add(hat);
+                hat.position.y = 1.6; // Sobre la cabeza de 3x3x3
+                cab.add(hat); // Anclado
             }
 
             const pI = new THREE.Group(); const pD = new THREE.Group();
@@ -70,7 +70,7 @@
             pI.add(legMesh.clone()); pD.add(legMesh.clone());
             pI.position.set(-1.2*m, 2.5, 0); pD.position.set(1.2*m, 2.5, 0);
 
-            // Carga de Zapatillas
+            // Zapatillas (Escala Mapa)
             const zI = GaleriaZapatillas[config.zapato](config.color);
             const zD = GaleriaZapatillas[config.zapato](config.color);
             zI.scale.set(5.5, 5.5, 5.5); zD.scale.set(5.5, 5.5, 5.5);
@@ -82,34 +82,20 @@
             scene.add(vaquero);
         }
 
-        function cargarEntorno() {
-            const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            data.forEach(item => {
-                if(item.type !== 'suelo' && typeof Fabrica !== 'undefined') {
-                    const obj = Fabrica.crear(item.type);
-                    obj.position.set(item.pos.x, 0.1, item.pos.z);
-                    scene.add(obj);
-                }
-            });
-        }
-
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            
             if(vaquero) {
-                // MOTOR DE MOVIMIENTO PROFESIONAL
+                // Motor de movimiento definitivo
                 MotorAnimacion.actualizar(vaquero, keys, delta);
 
-                // Control de posición
                 const spd = (keys['ShiftLeft'] ? 180 : 90) * delta;
                 if(keys['KeyW']) vaquero.translateZ(spd);
                 if(keys['KeyS']) vaquero.translateZ(-spd);
                 if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
                 if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
 
-                // Seguimiento Cámara
-                camera.position.lerp(new THREE.Vector3(vaquero.position.x, vaquero.position.y + 60, vaquero.position.z + 130), 0.1);
+                camera.position.lerp(new THREE.Vector3(vaquero.position.x, vaquero.position.y+60, vaquero.position.z+130), 0.1);
                 camera.lookAt(vaquero.position.x, vaquero.position.y + 10, vaquero.position.z);
             }
             renderer.render(scene, camera);
