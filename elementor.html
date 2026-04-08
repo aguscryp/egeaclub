@@ -2,60 +2,34 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Elementor Admin | Agustín Pro</title>
+    <title>Elementor Pro | Agustín Admin</title>
     <style>
         :root { --pink: #ff007f; --neon: #00d4ff; --bg: #050505; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; overflow: hidden; }
-        
-        #side-panel {
-            width: 300px; height: 100vh; background: rgba(10, 10, 10, 0.95);
-            border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 10px; z-index: 100;
-        }
-
-        h2 { color: var(--pink); text-transform: uppercase; letter-spacing: 2px; font-size: 16px; text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .cat { font-size: 9px; color: var(--neon); letter-spacing: 1px; margin-top: 10px; font-weight: bold; }
-        
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .item-btn {
-            background: #111; border: 1px solid #333; color: #aaa; padding: 10px;
-            border-radius: 6px; cursor: pointer; transition: 0.3s; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
-        }
-        .item-btn:hover { border-color: var(--pink); color: white; background: #1a1a1a; }
+        #side-panel { width: 300px; height: 100vh; background: rgba(10,10,10,0.95); border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box; z-index: 100; }
+        h2 { color: var(--pink); text-transform: uppercase; text-align: center; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .item-btn { background: #111; border: 1px solid #333; color: #aaa; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 10px; transition: 0.3s; }
         .item-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
-
-        #view { flex-grow: 1; position: relative; cursor: crosshair; }
+        #view { flex-grow: 1; position: relative; }
         #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: var(--neon); font-size: 11px; border: 1px solid var(--neon); }
-        .controls-hint { position: absolute; bottom: 20px; right: 20px; color: #666; font-size: 10px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div id="side-panel">
-        <h2>ELEMENTOR ADMIN</h2>
-        <div class="cat">ESTRUCTURAS</div>
+        <h2>ELEMENTOR PRO</h2>
         <div class="grid">
-            <button class="item-btn active" onclick="sel('calle', this)">🛣️ CALLE REAL</button>
-            <button class="item-btn" onclick="sel('casa', this)">🏠 CASA NEÓN</button>
+            <button class="item-btn active" onclick="sel('calle', this)">🛣️ CALLE AMARILLA</button>
+            <button class="item-btn" onclick="sel('sw4', this)">🛻 SW4</button>
+            <button class="item-btn" onclick="sel('estacion', this)">⛽ ESTACIÓN</button>
             <button class="item-btn" onclick="sel('farola', this)">💡 FAROLA</button>
         </div>
-        <div class="cat">SERVICIOS</div>
-        <div class="grid">
-            <button class="item-btn" onclick="sel('estacion', this)">⛽ ESTACIÓN</button>
-            <button class="item-btn" onclick="sel('taller', this)">🔧 TALLER</button>
-        </div>
-        <div class="cat">VEHÍCULOS</div>
-        <div class="grid">
-            <button class="item-btn" onclick="sel('sw4', this)">🛻 TOYOTA SW4</button>
-            <button class="item-btn" onclick="sel('pino', this)">🌲 PINO</button>
-        </div>
-        <button onclick="limpiarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:5px; font-size:10px; font-weight:bold;">BORRAR TODO</button>
+        <button onclick="limpiarTodo()" style="margin-top:20px; width:100%; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:5px;">BORRAR TODO</button>
     </div>
 
     <div id="view">
-        <div id="status">INICIALIZANDO...</div>
-        <div class="controls-hint">Ruedita: Zoom | Click Izq: Colocar | Click Der: Girar</div>
+        <div id="status">SISTEMA LISTO</div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -63,28 +37,16 @@
     <script>
         let scene, camera, renderer, grid, raycaster, mouse;
         let currentType = 'calle';
-        let zoomDist = 400;
-        let camRot = 0.5;
-        let isRightDown = false;
+        let zoomDist = 500;
 
-        // Función de inicio seguro
-        window.onload = function() {
-            try {
-                init();
-                animate();
-                document.getElementById('status').innerText = "SISTEMA ACTIVO | OBJETO: CALLE";
-            } catch (e) {
-                console.error("Error en el arranque:", e);
-                document.getElementById('status').innerText = "ERROR DE CARGA";
-            }
-        };
+        window.onload = () => { init(); animate(); renderExisting(); };
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0a);
-            
             camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 300) / window.innerHeight, 1, 10000);
-            updateCamPos();
+            camera.position.set(400, 400, 400);
+            camera.lookAt(0,0,0);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth - 300, window.innerHeight);
@@ -93,129 +55,81 @@
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const light = new THREE.DirectionalLight(0xffffff, 0.8);
-            light.position.set(200, 500, 200);
-            scene.add(light);
-
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
             grid = new THREE.GridHelper(4000, 80, 0x333333, 0x222222);
             scene.add(grid);
 
-            renderExisting();
-
-            // Zoom
-            window.addEventListener('wheel', (e) => {
-                zoomDist += e.deltaY * 0.5;
-                zoomDist = Math.max(50, Math.min(2000, zoomDist));
-                updateCamPos();
-            });
-
-            // Mouse Events
-            window.addEventListener('contextmenu', e => e.preventDefault());
-            window.addEventListener('mousedown', e => { if(e.button === 2) isRightDown = true; });
-            window.addEventListener('mouseup', e => { if(e.button === 2) isRightDown = false; });
-            
-            window.addEventListener('mousemove', e => {
-                const r = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-                mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-                if(isRightDown) {
-                    camRot -= e.movementX * 0.01;
-                    updateCamPos();
-                }
-            });
-
             window.addEventListener('click', (e) => {
-                if(e.button !== 0 || e.target.closest('#side-panel')) return;
+                if(e.target.closest('#side-panel')) return;
                 raycaster.setFromCamera(mouse, camera);
                 const hits = raycaster.intersectObject(grid);
                 if(hits.length > 0) {
                     const p = hits[0].point;
-                    const obj = { 
-                        type: currentType, 
-                        pos: { x: Math.round(p.x/10)*10, z: Math.round(p.z/10)*10 } 
-                    };
-                    save(obj);
+                    const posX = Math.round(p.x/10)*10;
+                    const posZ = Math.round(p.z/10)*10;
+                    
+                    if(currentType === 'calle') {
+                        // FORZADO: Guardamos la base negra
+                        save({ type: 'calle_base', pos: { x: posX, z: posZ } });
+                        // FORZADO: Guardamos las líneas amarillas como objetos individuales
+                        // Usamos el tipo 'farola' o 'casa' temporalmente si el mapa no reconoce otros, 
+                        // pero lo ideal es que el mapa lea el color. 
+                        // Si el mapa solo lee bloques, le mandamos "mini casas" amarillas en el centro.
+                        save({ type: 'linea_amarilla', pos: { x: posX, z: posZ } });
+                    } else {
+                        save({ type: currentType, pos: { x: posX, z: posZ } });
+                    }
                 }
             });
-        }
 
-        function updateCamPos() {
-            camera.position.x = zoomDist * Math.sin(camRot);
-            camera.position.z = zoomDist * Math.cos(camRot);
-            camera.position.y = zoomDist * 0.7;
-            camera.lookAt(0,0,0);
+            window.addEventListener('mousemove', e => {
+                const r = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+                mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+            });
         }
 
         function sel(t, btn) {
             currentType = t;
             document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById('status').innerText = `OBJETO: ${t.toUpperCase()}`;
         }
 
         function save(obj) {
-            let data = [];
-            try {
-                const raw = localStorage.getItem('elementos_ciudad');
-                data = raw ? JSON.parse(raw) : [];
-            } catch(e) { data = []; }
-            
+            let data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
             data.push(obj);
             localStorage.setItem('elementos_ciudad', JSON.stringify(data));
             draw(obj);
         }
 
         function draw(obj) {
-            if(!obj || !obj.pos) return;
-            const group = new THREE.Group();
-            group.position.set(obj.pos.x, 0, obj.pos.z);
+            let color = 0xff007f;
+            let size = [10, 10, 10];
 
-            if (obj.type === 'calle') {
-                const asfalto = new THREE.Mesh(new THREE.BoxGeometry(50, 0.4, 50), new THREE.MeshStandardMaterial({color: 0x111111}));
-                group.add(asfalto);
-                const lineaGeo = new THREE.BoxGeometry(2, 0.1, 10);
-                const lineaMat = new THREE.MeshStandardMaterial({color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.5});
-                for(let i=0; i<3; i++) {
-                    const l = new THREE.Mesh(lineaGeo, lineaMat);
-                    l.position.set(0, 0.3, (i*18)-18);
-                    group.add(l);
-                }
-            } 
-            else if (obj.type === 'sw4') {
-                const body = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 16), new THREE.MeshStandardMaterial({color: 0xffffff}));
-                body.position.y = 3;
-                group.add(body);
-            }
-            else if (obj.type === 'estacion') {
-                const techo = new THREE.Mesh(new THREE.BoxGeometry(42, 2, 32), new THREE.MeshStandardMaterial({color: 0x00ff44}));
-                techo.position.y = 15;
-                group.add(techo);
-            }
-            else {
-                const cube = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({color: 0xff007f}));
-                cube.position.y = 5;
-                group.add(cube);
-            }
+            if(obj.type === 'calle_base') { color = 0x111111; size = [50, 1, 50]; }
+            if(obj.type === 'linea_amarilla') { color = 0xffff00; size = [2, 2, 40]; }
+            if(obj.type === 'sw4') { color = 0xffffff; size = [10, 5, 18]; }
 
-            scene.add(group);
+            const geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
+            const mat = new THREE.MeshStandardMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(obj.pos.x, size[1]/2, obj.pos.z);
+            scene.add(mesh);
         }
 
         function renderExisting() {
-            try {
-                const raw = localStorage.getItem('elementos_ciudad');
-                const data = raw ? JSON.parse(raw) : [];
-                if(Array.isArray(data)) data.forEach(draw);
-            } catch(e) { console.error("Error cargando mapa:", e); }
+            const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+            data.forEach(draw);
         }
 
         function limpiarTodo() {
-            if(confirm("¿Borrar todo?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
+            localStorage.removeItem('elementos_ciudad');
+            location.reload();
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            if(renderer && scene && camera) renderer.render(scene, camera);
+            renderer.render(scene, camera);
         }
     </script>
 </body>
