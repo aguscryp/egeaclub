@@ -6,114 +6,117 @@
     <style>
         :root { --pink: #ff007f; --dark: #0a0a0a; --neon: #00d4ff; }
         body { margin: 0; background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex; }
-        
-        #panel {
-            width: 320px; height: 100vh; background: rgba(10, 10, 10, 0.98);
-            border-right: 3px solid var(--pink); padding: 25px; overflow-y: auto;
-            box-shadow: 15px 0 30px rgba(0,0,0,0.8); z-index: 100;
-        }
-
+        #panel { width: 320px; height: 100vh; background: rgba(10,10,10,0.98); border-right: 3px solid var(--pink); padding: 25px; overflow-y: auto; z-index: 100; }
         h2 { color: var(--pink); text-transform: uppercase; letter-spacing: 3px; font-size: 20px; margin-bottom: 25px; text-shadow: 0 0 10px var(--pink); }
-        .cat { font-size: 11px; color: var(--neon); margin: 20px 0 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-
+        .cat { font-size: 11px; color: var(--neon); margin: 20px 0 10px; font-weight: bold; text-transform: uppercase; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .item-btn {
-            background: #151515; border: 1px solid #333; color: #888; padding: 12px 5px;
-            cursor: pointer; font-size: 10px; border-radius: 4px; transition: 0.4s;
-            text-align: center;
-        }
-        .item-btn:hover { border-color: var(--pink); color: white; background: #202020; transform: translateY(-2px); }
-        .item-btn.active { background: var(--pink); color: white; border-color: white; box-shadow: 0 0 15px var(--pink); }
-
-        .btn-main {
-            width: 100%; margin-top: 15px; padding: 15px; border: none; border-radius: 6px; 
-            font-weight: bold; cursor: pointer; transition: 0.3s;
-        }
+        .item-btn { background: #151515; border: 1px solid #333; color: #888; padding: 12px 5px; cursor: pointer; font-size: 10px; border-radius: 4px; transition: 0.4s; }
+        .item-btn:hover { border-color: var(--pink); color: white; }
+        .item-btn.active { background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
+        .btn-main { width: 100%; margin-top: 15px; padding: 15px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         #btn-save { background: var(--neon); color: black; box-shadow: 0 0 15px var(--neon); }
-        #btn-save:hover { filter: brightness(1.2); transform: scale(1.02); }
-
         #canvas-container { flex-grow: 1; height: 100vh; cursor: crosshair; }
     </style>
 </head>
 <body>
-
     <div id="panel">
         <h2>CITY MASTER</h2>
-        
-        <div class="cat">Transporte Manejable</div>
+        <div class="cat">Manejables</div>
         <div class="grid">
-            <button class="item-btn" onclick="sel('auto_conducible', this)">🚗 AUTO ROJO</button>
-            <button class="item-btn" onclick="sel('camion', this)">🚛 CAMIÓN REALISTA</button>
+            <button class="item-btn" onclick="sel('auto_conducible', this)">🚗 AUTO</button>
+            <button class="item-btn" onclick="sel('camion', this)">🚛 CAMIÓN</button>
         </div>
-
-        <div class="cat">Infraestructura</div>
+        <div class="cat">Estructuras</div>
         <div class="grid">
             <button class="item-btn" onclick="sel('calle', this)">🛣️ CALLE</button>
             <button class="item-btn" onclick="sel('vereda', this)">🚶 VEREDA</button>
-            <button class="item-btn" onclick="sel('luz_led', this)">💡 LUZ LED</button>
             <button class="item-btn" onclick="sel('porton', this)">🚪 PORTÓN</button>
+            <button class="item-btn" onclick="sel('luz_led', this)">💡 LUZ LED</button>
         </div>
-
-        <div class="cat">Ambiente</div>
+        <div class="cat">Naturaleza</div>
         <div class="grid">
             <button class="item-btn" onclick="sel('palmera', this)">🌴 PALMERA</button>
             <button class="item-btn" onclick="sel('pino', this)">🌲 PINO</button>
         </div>
-
-        <div style="margin-top:40px;">
-            <button id="btn-save" class="btn-main" onclick="guardarCiudad()">GUARDAR CAMBIOS</button>
-            <button class="btn-main" style="background:#333; color:white;" onclick="borrarUltimo()">DESHACER</button>
-            <button class="btn-main" style="background:#600; color:white;" onclick="limpiarTodo()">BORRAR MAPA</button>
-        </div>
+        <button id="btn-save" class="btn-main" onclick="guardarCiudad()">GUARDAR CIUDAD</button>
+        <button class="btn-main" style="background:#333; color:white;" onclick="borrarUltimo()">DESHACER</button>
     </div>
-
     <div id="canvas-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
-        let scene, camera, renderer, raycaster, mouse, gridHelper;
-        let selectedType = 'calle';
-        let ghostObject = null;
-        let elementos = [];
+        // --- LIBRERÍA DE MODELOS (COMPARTIDA CON MAPA.HTML) ---
+        window.createModel = function(type, isPreview = false) {
+            const group = new THREE.Group();
+            const mat = (c, m=0) => new THREE.MeshStandardMaterial({ color: c, metalness: m, roughness: 0.5, transparent: isPreview, opacity: isPreview ? 0.6 : 1 });
+
+            if(type === 'calle') {
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), mat(0x111111)));
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 50), mat(0xffff00)));
+            }
+            else if(type === 'camion') {
+                const cab = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), mat(0x333333, 0.7)); cab.position.y = 5;
+                const mot = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), mat(0x333333, 0.7)); mot.position.set(0, 3.5, 9);
+                const trailer = new THREE.Mesh(new THREE.BoxGeometry(11, 12, 32), mat(0xaaaaaa, 0.1)); trailer.position.set(0, 8, -11);
+                group.add(cab, mot, trailer);
+                [[5,2.2,12], [-5,2.2,12], [5,2.2,-5], [-5,2.2,-5], [5,2.2,-25], [-5,2.2,-25]].forEach(p => {
+                    const w = new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,1.5,12), mat(0x111111));
+                    w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]); group.add(w);
+                });
+                group.userData.isVehicle = true; group.userData.isTruck = true;
+            }
+            else if(type === 'auto_conducible') {
+                const b = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 18), mat(0xff0044, 0.4)); b.position.y = 2.5;
+                group.add(b, new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 7), mat(0x111111, 0)).set(0, 4.5, -1));
+                [[5,1.6,6],[-5,1.6,6],[5,1.6,-6],[-5,1.6,-6]].forEach(p => {
+                    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.6,1.6,1.2,12), mat(0x111111));
+                    w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]); group.add(w);
+                });
+                group.userData.isVehicle = true;
+            }
+            else if(type === 'luz_led') {
+                const p = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 45), mat(0x333333)); p.position.y = 22.5;
+                const c = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 7), mat(0xffffff)); c.position.set(0, 45, 3);
+                group.add(p, c);
+            }
+            else if(type === 'palmera') {
+                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 35), mat(0x4b3621)); t.position.y = 17.5;
+                const c = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), mat(0x228b22)); c.position.y = 35;
+                group.add(t, c);
+            }
+            else if(type === 'vereda') { group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 15), mat(0x444444))); }
+            else if(type === 'porton') {
+                const p1 = new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4), mat(0x222222)); p1.position.x = -20;
+                const p2 = p1.clone(); p2.position.x = 20;
+                const b = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 2), mat(0x00d4ff)); b.position.y = 25;
+                group.add(p1, p2, b);
+            }
+            return group;
+        };
+
+        // --- LÓGICA DEL EDITOR ---
+        let scene, camera, renderer, raycaster, mouse, grid;
+        let selectedType = 'calle', ghostObject = null, elementos = [];
 
         function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050505);
-            
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x050505);
             camera = new THREE.PerspectiveCamera(60, (window.innerWidth - 320) / window.innerHeight, 1, 10000);
-            camera.position.set(200, 200, 200);
-            camera.lookAt(0, 0, 0);
-
+            camera.position.set(200, 200, 200); camera.lookAt(0, 0, 0);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth - 320, window.innerHeight);
             document.getElementById('canvas-container').appendChild(renderer.domElement);
-
             scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-            const sun = new THREE.DirectionalLight(0xffffff, 1);
-            sun.position.set(200, 500, 200);
-            scene.add(sun);
+            grid = new THREE.GridHelper(3000, 60, 0x222222, 0x111111); scene.add(grid);
+            raycaster = new THREE.Raycaster(); mouse = new THREE.Vector2();
 
-            gridHelper = new THREE.GridHelper(3000, 60, 0x222222, 0x111111);
-            scene.add(gridHelper);
-
-            raycaster = new THREE.Raycaster();
-            mouse = new THREE.Vector2();
-
-            // Cargar datos persistentes
             const saved = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
             saved.forEach(item => {
-                const obj = createModel(item.type);
-                obj.position.set(item.pos.x, 0, item.pos.z);
-                scene.add(obj);
-                elementos.push({ type: item.type, obj: obj });
+                const obj = window.createModel(item.type); obj.position.set(item.pos.x, 0, item.pos.z);
+                scene.add(obj); elementos.push({ type: item.type, obj: obj });
             });
 
             window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mousedown', (e) => {
-                if(e.button === 0 && e.clientX > 320) placeObject();
-            });
-            
+            window.addEventListener('mousedown', (e) => { if(e.button === 0 && e.clientX > 320) placeObject(); });
             animate();
         }
 
@@ -122,133 +125,34 @@
             document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             if(ghostObject) scene.remove(ghostObject);
-            ghostObject = createModel(type, true);
-            scene.add(ghostObject);
-        }
-
-        function createModel(type, isPreview = false) {
-            const group = new THREE.Group();
-            const mat = (c, metal = 0) => new THREE.MeshStandardMaterial({ 
-                color: c, metalness: metal, roughness: 0.5,
-                transparent: isPreview, opacity: isPreview ? 0.6 : 1 
-            });
-
-            if(type === 'calle') {
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), mat(0x111111)));
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 50), mat(0xffff00)));
-            }
-            else if(type === 'camion') {
-                // Cabina
-                const cab = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), mat(0x333333, 0.7));
-                cab.position.y = 5;
-                const mot = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), mat(0x333333, 0.7));
-                mot.position.set(0, 3.5, 9);
-                const trailer = new THREE.Mesh(new THREE.BoxGeometry(11, 12, 32), mat(0xaaaaaa, 0.1));
-                trailer.position.set(0, 8, -11);
-                group.add(cab, mot, trailer);
-                // Ruedas
-                const rG = new THREE.CylinderGeometry(2.2, 2.2, 1.5, 12);
-                const rM = mat(0x111111);
-                [ [5,2.2,12], [-5,2.2,12], [5,2.2,-5], [-5,2.2,-5], [5,2.2,-25], [-5,2.2,-25] ].forEach(p => {
-                    const w = new THREE.Mesh(rG, rM); w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]);
-                    group.add(w);
-                });
-            }
-            else if(type === 'auto_conducible') {
-                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 18), mat(0xff0044, 0.4));
-                body.position.y = 2.5;
-                const glass = new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 7), mat(0x111111));
-                glass.position.set(0, 4.5, -1);
-                group.add(body, glass);
-                const rG = new THREE.CylinderGeometry(1.6, 1.6, 1.2, 12);
-                [ [5,1.6,6], [-5,1.6,6], [5,1.6,-6], [-5,1.6,-6] ].forEach(p => {
-                    const w = new THREE.Mesh(rG, mat(0x111111)); w.rotation.z = Math.PI/2; w.position.set(p[0],p[1],p[2]);
-                    group.add(w);
-                });
-            }
-            else if(type === 'luz_led') {
-                const p = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 45), mat(0x333333));
-                p.position.y = 22.5;
-                const c = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 7), mat(0xffffff));
-                c.position.set(0, 45, 3);
-                group.add(p, c);
-            }
-            else if(type === 'palmera') {
-                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.4, 35), mat(0x4b3621));
-                t.position.y = 17.5;
-                const c = new THREE.Mesh(new THREE.SphereGeometry(10, 8, 8), mat(0x228b22));
-                c.position.y = 35;
-                group.add(t, c);
-            }
-            else if(type === 'vereda') {
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 15), mat(0x444444)));
-            }
-            else if(type === 'porton') {
-                const p1 = new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4), mat(0x222222));
-                p1.position.x = -20;
-                const p2 = p1.clone(); p2.position.x = 20;
-                const b = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 2), mat(0x00d4ff));
-                b.position.y = 25;
-                group.add(p1, p2, b);
-            }
-            else if(type === 'pino') {
-                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 8), mat(0x3d2b1f));
-                const co = new THREE.Mesh(new THREE.ConeGeometry(12, 30, 8), mat(0x0b3d0b));
-                co.position.y = 18;
-                group.add(t, co);
-            }
-            return group;
+            ghostObject = window.createModel(type, true); scene.add(ghostObject);
         }
 
         function onMouseMove(event) {
             mouse.x = ((event.clientX - 320) / (window.innerWidth - 320)) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(gridHelper);
-            if (intersects.length > 0 && ghostObject) {
-                const pos = intersects[0].point;
-                ghostObject.position.x = Math.round(pos.x / 25) * 25;
-                ghostObject.position.z = Math.round(pos.z / 25) * 25;
+            const ints = raycaster.intersectObject(grid);
+            if (ints.length > 0 && ghostObject) {
+                ghostObject.position.x = Math.round(ints[0].point.x / 25) * 25;
+                ghostObject.position.z = Math.round(ints[0].point.z / 25) * 25;
             }
         }
 
         function placeObject() {
             if(!ghostObject) return;
-            const newObj = createModel(selectedType);
-            newObj.position.copy(ghostObject.position);
-            scene.add(newObj);
-            elementos.push({ type: selectedType, obj: newObj });
+            const n = window.createModel(selectedType); n.position.copy(ghostObject.position);
+            scene.add(n); elementos.push({ type: selectedType, obj: n });
         }
 
         function guardarCiudad() {
-            const data = elementos.map(e => ({
-                type: e.type,
-                pos: { x: e.obj.position.x, z: e.obj.position.z }
-            }));
+            const data = elementos.map(e => ({ type: e.type, pos: { x: e.obj.position.x, z: e.obj.position.z } }));
             localStorage.setItem('elementos_ciudad', JSON.stringify(data));
-            alert("✅ DATOS SINCRONIZADOS. El mapa ha sido actualizado.");
+            alert("✅ Guardado.");
         }
 
-        function borrarUltimo() {
-            if(elementos.length > 0) {
-                const last = elementos.pop();
-                scene.remove(last.obj);
-            }
-        }
-
-        function limpiarTodo() {
-            if(confirm("¿BORRAR TODO EL PROYECTO?")) {
-                elementos.forEach(e => scene.remove(e.obj));
-                elementos = [];
-                localStorage.removeItem('elementos_ciudad');
-            }
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        }
-
+        function borrarUltimo() { if(elementos.length > 0) scene.remove(elementos.pop().obj); }
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
         window.onload = init;
     </script>
 </body>
