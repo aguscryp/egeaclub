@@ -2,284 +2,114 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mundo Persistente | Agustín Pro</title>
+    <title>Mapa | Agustín Pro</title>
     <style>
         :root { --pink: #ff007f; --neon: #00d4ff; }
         body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-        
-        #hud {
-            position: absolute; top: 20px; left: 20px; padding: 20px;
-            background: rgba(10, 10, 10, 0.9); border-left: 5px solid var(--pink);
-            color: white; z-index: 100; border-radius: 0 10px 10px 0;
-        }
-
-        #prompt {
-            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
-            background: var(--pink); color: white; padding: 12px 25px;
-            border-radius: 8px; font-weight: bold; display: none; z-index: 100;
-            box-shadow: 0 0 20px var(--pink); border: 2px solid white;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
-
-        .instrucciones {
-            position: absolute; bottom: 20px; left: 20px;
-            background: rgba(0,0,0,0.6); color: #fff; padding: 10px;
-            font-size: 11px; border-radius: 5px; pointer-events: none;
-        }
+        #hud { position: absolute; top: 20px; left: 20px; padding: 20px; background: rgba(10,10,10,0.9); border-left: 5px solid var(--pink); color: white; border-radius: 0 10px 10px 0; }
+        #prompt { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--pink); color: white; padding: 12px 25px; border-radius: 8px; font-weight: bold; display: none; box-shadow: 0 0 20px var(--pink); }
     </style>
 </head>
 <body>
-
     <div id="hud">
-        <div id="p-nombre" style="font-weight: bold; font-size: 20px; letter-spacing: 1px;">OPERADOR</div>
-        <div id="p-estado" style="font-size: 10px; color: var(--neon); margin-top:5px;">A PIE</div>
+        <div id="p-nombre">OPERADOR</div>
+        <div id="p-estado" style="color: var(--neon);">A PIE</div>
     </div>
-
-    <div id="prompt">PRESIONA [F] PARA SUBIR AL VEHÍCULO</div>
-
-    <div class="instrucciones">
-        WASD: Mover | F: Entrar/Salir | CLICK DER: Girar Cámara | RUEDITA: Zoom | ESPACIO: Saltar
-    </div>
+    <div id="prompt">PRESIONA [F] PARA CONDUCIR</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
-        let scene, camera, renderer, vaquero, clock;
-        let pIzq, pDer, bIzq, bDer, torso;
-        let keys = {};
-        let velocityY = 0; 
-        let isGrounded = true;
-        
-        let zoomDistance = 80;
-        let camRotationY = 0;
-        let camRotationX = 0.5;
-        let isRightClickDown = false;
+        let scene, camera, renderer, vaquero, clock, keys = {}, autos = [], autoActual = null, carSpeed = 0;
+        let zoomDistance = 120, camRotationY = 0, camRotationX = 0.5, isRightClickDown = false;
 
-        // SISTEMA DE VEHÍCULOS INTEGRADO
-        let autos = [];
-        let autoActual = null;
-        let carSpeed = 0;
+        async function init() {
+            // --- CONEXIÓN DINÁMICA CON EL CEREBRO DE ELEMENTOR ---
+            try {
+                const res = await fetch('elementor.html');
+                const html = await res.text();
+                const code = html.match(/window\.createModel = function[\s\S]*?return group;\n\s*}/)[0];
+                eval(code); 
+            } catch(e) { console.error("Error vinculando con Elementor:", e); }
 
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 200, 3000);
+            scene = new THREE.Scene(); scene.background = new THREE.Color(0x87CEEB);
             clock = new THREE.Clock();
-
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 20000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 20000);
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-            sun.position.set(500, 1000, 500);
-            scene.add(sun);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(500,1000,500); scene.add(sun);
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), new THREE.MeshStandardMaterial({ color: 0x3d4d21 }));
+            ground.rotation.x = -Math.PI/2; scene.add(ground);
 
-            // Suelo diseñado por Elementor (Base de césped)
-            const groundGeo = new THREE.PlaneGeometry(20000, 20000);
-            const groundMat = new THREE.MeshStandardMaterial({ color: 0x3d4d21, roughness: 1 });
-            const ground = new THREE.Mesh(groundGeo, groundMat);
-            ground.rotation.x = -Math.PI / 2;
-            scene.add(ground);
-
-            // Personaje escalado (Agustín Pro Scale)
-            const saved = localStorage.getItem('playerConfig');
-            const config = saved ? JSON.parse(saved) : { color: "#ff007f", musculo: 1, altura: 1 };
-            document.getElementById('p-nombre').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
-            buildVaquero(config);
-
-            // Carga de ciudad dinámica (Permiso total a Elementor)
+            buildVaquero();
             cargarCiudad();
 
-            // EVENTOS
-            window.addEventListener('keydown', e => {
-                keys[e.code] = true;
-                if(e.code === 'KeyF') toggleVehiculo();
-            });
+            window.addEventListener('keydown', e => { keys[e.code] = true; if(e.code === 'KeyF') toggleVehiculo(); });
             window.addEventListener('keyup', e => keys[e.code] = false);
-            window.addEventListener('contextmenu', e => e.preventDefault());
             window.addEventListener('mousedown', e => { if(e.button === 2) isRightClickDown = true; });
             window.addEventListener('mouseup', e => { if(e.button === 2) isRightClickDown = false; });
-            window.addEventListener('mousemove', e => {
-                if(isRightClickDown) {
-                    camRotationY -= e.movementX * 0.01;
-                    camRotationX += e.movementY * 0.01;
-                    camRotationX = Math.max(0.05, Math.min(1.5, camRotationX));
-                }
-            });
-            window.addEventListener('wheel', e => {
-                zoomDistance += e.deltaY * 0.1;
-                zoomDistance = Math.max(20, Math.min(800, zoomDistance));
-            });
-
+            window.addEventListener('mousemove', e => { if(isRightClickDown) { camRotationY -= e.movementX*0.01; camRotationX = Math.max(0.05, Math.min(1.5, camRotationX + e.movementY*0.01)); }});
+            
             animate();
-        }
-
-        // MOTOR DE CONSTRUCCIÓN DETALLADO (Lector de Elementor)
-        function createDetailedModel(type) {
-            const group = new THREE.Group();
-            const mat = (c) => new THREE.MeshStandardMaterial({ color: c });
-
-            if(type === 'calle') {
-                const asf = new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), mat(0x111111));
-                const lin = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 50), mat(0xffff00));
-                group.add(asf, lin);
-            } 
-            else if(type === 'auto_conducible' || type === 'sw4') {
-                const color = type === 'auto_conducible' ? 0xff0044 : 0xffffff;
-                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 18), mat(color));
-                body.position.y = 2.5;
-                const tech = new THREE.Mesh(new THREE.BoxGeometry(8.5, 3, 9), mat(0x111111));
-                tech.position.set(0, 5, -1);
-                group.add(body, tech);
-                if(type === 'auto_conducible') group.userData.isVehicle = true;
-                
-                const rG = new THREE.CylinderGeometry(1.6, 1.6, 1.2, 12);
-                for(let i=0; i<4; i++) {
-                    const r = new THREE.Mesh(rG, mat(0x111111));
-                    r.rotation.z = Math.PI/2;
-                    r.position.set(i%2?5:-5, 1.6, i<2?6:-6);
-                    group.add(r);
-                }
-            } 
-            else if(type === 'porton') {
-                const p1 = new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4), mat(0x222222));
-                const p2 = p1.clone(); p1.position.x = -20; p2.position.x = 20;
-                const barra = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 2), mat(0x00d4ff));
-                barra.position.y = 25;
-                group.add(p1, p2, barra);
-            } 
-            else if(type === 'luz_led') {
-                const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 45), mat(0x333333));
-                poste.position.y = 22.5;
-                const cab = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 8), mat(0xffffff));
-                cab.position.set(0, 45, 3);
-                group.add(poste, cab);
-            }
-            else if(type === 'palmera') {
-                const tr = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.5, 30), mat(0x4b3621));
-                tr.position.y = 15;
-                const cp = new THREE.Mesh(new THREE.SphereGeometry(9, 8, 8), mat(0x228b22));
-                cp.position.y = 30;
-                group.add(tr, cp);
-            }
-            else if(type === 'vereda') {
-                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1.2, 12), mat(0x555555)));
-            }
-            else if(type === 'pino') {
-                const tr = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 5), mat(0x3d2b1f));
-                const co = new THREE.Mesh(new THREE.ConeGeometry(10, 25, 8), mat(0x0b3d0b));
-                co.position.y = 15;
-                group.add(tr, co);
-            }
-            return group;
         }
 
         function cargarCiudad() {
             const data = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
             data.forEach(item => {
-                const model = createDetailedModel(item.type);
-                model.position.set(item.pos.x, 0, item.pos.z);
-                scene.add(model);
-                if(model.userData.isVehicle) autos.push(model);
+                if(window.createModel) {
+                    const m = window.createModel(item.type, false);
+                    m.position.set(item.pos.x, 0, item.pos.z);
+                    scene.add(m);
+                    if(m.userData.isVehicle) autos.push(m);
+                }
             });
-        }
-
-        function buildVaquero(config) {
-            vaquero = new THREE.Group();
-            const matColor = new THREE.MeshStandardMaterial({ color: config.color });
-            const matPiel = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
-            const esc = 3.5;
-            
-            torso = new THREE.Mesh(new THREE.BoxGeometry(0.8 * esc, 1.2 * esc, 0.5 * esc), matColor);
-            torso.position.y = 1.6 * esc;
-            const cab = new THREE.Mesh(new THREE.BoxGeometry(0.6 * esc, 0.6 * esc, 0.6 * esc), matPiel);
-            cab.position.y = 2.5 * esc;
-
-            const geoExt = new THREE.BoxGeometry(0.3 * esc, 0.9 * esc, 0.3 * esc);
-            pIzq = new THREE.Mesh(geoExt, matColor); pIzq.position.set(-0.3 * esc, 0.5 * esc, 0);
-            pDer = new THREE.Mesh(geoExt, matColor); pDer.position.set(0.3 * esc, 0.5 * esc, 0);
-            bIzq = new THREE.Mesh(new THREE.BoxGeometry(0.25 * esc, 1 * esc, 0.25 * esc), matPiel);
-            bIzq.position.set(-0.7 * esc, 1.7 * esc, 0);
-            bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * esc, 1 * esc, 0.25 * esc), matPiel);
-            bDer.position.set(0.7 * esc, 1.7 * esc, 0);
-
-            vaquero.add(torso, cab, pIzq, pDer, bIzq, bDer);
-            scene.add(vaquero);
         }
 
         function toggleVehiculo() {
             if(autoActual) {
-                autoActual = null;
-                vaquero.visible = true;
-                vaquero.position.set(vaquero.position.x + 12, 0, vaquero.position.z);
+                const off = new THREE.Vector3(15, 0, 0).applyQuaternion(autoActual.quaternion);
+                vaquero.position.copy(autoActual.position).add(off);
+                vaquero.position.y = 0; autoActual = null; vaquero.visible = true;
                 document.getElementById('p-estado').innerText = "A PIE";
             } else {
                 autos.forEach(a => {
-                    if(vaquero.position.distanceTo(a.position) < 25) {
-                        autoActual = a;
-                        vaquero.visible = false;
-                        document.getElementById('p-estado').innerText = "CONDUCIENDO";
+                    if(vaquero.position.distanceTo(a.position) < 35) {
+                        autoActual = a; vaquero.visible = false;
+                        document.getElementById('p-estado').innerText = "CONDUCIENDO"; carSpeed = 0;
                     }
                 });
             }
         }
 
+        function buildVaquero() {
+            vaquero = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(3, 4.5, 2), new THREE.MeshStandardMaterial({color: 0xff007f}));
+            body.position.y = 5.5; vaquero.add(body); scene.add(vaquero);
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-            const time = Date.now() * 0.005;
-
+            const d = clock.getDelta();
             if(autoActual) {
-                if(keys['KeyW']) carSpeed = Math.min(carSpeed + 4, 180);
-                else if(keys['KeyS']) carSpeed = Math.max(carSpeed - 4, -60);
-                else carSpeed *= 0.97;
-
-                if(keys['KeyA']) autoActual.rotation.y += 0.04;
-                if(keys['KeyD']) autoActual.rotation.y -= 0.04;
-
-                autoActual.translateZ(carSpeed * delta);
-                
-                const x = autoActual.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX);
-                const y = autoActual.position.y + zoomDistance * Math.sin(camRotationX) + 15;
-                const z = autoActual.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX);
-                camera.position.set(x, y, z);
-                camera.lookAt(autoActual.position.x, autoActual.position.y + 5, autoActual.position.z);
-
+                const max = autoActual.userData.isTruck ? 110 : 190;
+                const acc = autoActual.userData.isTruck ? 1.5 : 5;
+                if(keys['KeyW']) carSpeed = Math.min(carSpeed + acc, max);
+                else if(keys['KeyS']) carSpeed = Math.max(carSpeed - acc, -60);
+                else carSpeed *= 0.98;
+                if(keys['KeyA']) autoActual.rotation.y += 0.03;
+                if(keys['KeyD']) autoActual.rotation.y -= 0.03;
+                autoActual.translateZ(carSpeed * d);
+                camera.position.lerp(new THREE.Vector3(autoActual.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX), autoActual.position.y + zoomDistance * Math.sin(camRotationX) + 25, autoActual.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX)), 0.1);
+                camera.lookAt(autoActual.position);
             } else {
-                const speed = (keys['ShiftLeft'] ? 130 : 65) * delta;
-                if(keys['KeyW']) vaquero.translateZ(speed);
-                if(keys['KeyS']) vaquero.translateZ(-speed);
-                if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
-                if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
-
-                // Animación de caminata
-                const isMoving = keys['KeyW'] || keys['KeyS'];
-                const aSpd = isMoving ? 3 : 0.5;
-                const aAmp = isMoving ? 0.8 : 0.1;
-                pIzq.rotation.x = -Math.sin(time * aSpd) * aAmp;
-                pDer.rotation.x = Math.sin(time * aSpd) * aAmp;
-                bIzq.rotation.x = Math.sin(time * aSpd) * aAmp;
-                bDer.rotation.x = -Math.sin(time * aSpd) * aAmp;
-
-                if(keys['Space'] && isGrounded) { velocityY = 1.4; isGrounded = false; }
-                if(!isGrounded) {
-                    velocityY -= 0.07;
-                    vaquero.position.y += velocityY;
-                    if(vaquero.position.y <= 0) { vaquero.position.y = 0; isGrounded = true; }
-                }
-
-                let cerca = false;
-                autos.forEach(a => { if(vaquero.position.distanceTo(a.position) < 25) cerca = true; });
-                document.getElementById('prompt').style.display = cerca ? "block" : "none";
-
-                const x = vaquero.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX);
-                const y = vaquero.position.y + zoomDistance * Math.sin(camRotationX) + 14;
-                const z = vaquero.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX);
-                camera.position.set(x, y, z);
+                const s = (keys['ShiftLeft'] ? 130 : 65) * d;
+                if(keys['KeyW']) vaquero.translateZ(s); if(keys['KeyS']) vaquero.translateZ(-s);
+                if(keys['KeyA']) vaquero.rotation.y += 3 * d; if(keys['KeyD']) vaquero.rotation.y -= 3 * d;
+                let c = false; autos.forEach(a => { if(vaquero.position.distanceTo(a.position) < 35) c = true; });
+                document.getElementById('prompt').style.display = c ? "block" : "none";
+                camera.position.set(vaquero.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX), vaquero.position.y + zoomDistance * Math.sin(camRotationX) + 15, vaquero.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX));
                 camera.lookAt(vaquero.position.x, vaquero.position.y + 10, vaquero.position.z);
             }
             renderer.render(scene, camera);
