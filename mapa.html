@@ -2,27 +2,37 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Agustín Engine | World Alpha</title>
+    <title>Agustín Engine | World Alpha 4D</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         #overlay {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.7); padding: 15px; border-left: 4px solid #ff007f;
-            text-transform: uppercase; letter-spacing: 1px; font-size: 12px;
+            background: rgba(10, 10, 10, 0.85); padding: 20px; 
+            border-left: 5px solid #ff007f; border-radius: 0 10px 10px 0;
+            text-transform: uppercase; letter-spacing: 1px; font-size: 13px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); z-index: 100;
         }
         .valor { color: #ff007f; font-weight: bold; }
+        #prompt {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            background: #ff007f; color: white; padding: 10px 20px; border-radius: 5px;
+            font-weight: bold; display: none; border: 2px solid white;
+        }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <div>Sujeto: <span class="valor" id="p-name">AGUSTÍN</span></div>
-        <div>Mundo: <span class="valor">SINCRONIZADO 4D</span></div>
-        <div id="status">ESTADO: IDLE</div>
+        <div>Operador: <span class="valor" id="p-name">AGUSTÍN</span></div>
+        <div>Entorno: <span class="valor">MAPA LISTO (4D)</span></div>
+        <div id="status">ESTADO: EXPLORANDO</div>
     </div>
+
+    <div id="prompt">PRESIONA [F] PARA INTERACTUAR</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="mapalisto.js"></script>
+    <script src="fabrica.js"></script>
 
     <script>
         let scene, camera, renderer, vaquero, clock;
@@ -34,62 +44,67 @@
             scene = new THREE.Scene();
             clock = new THREE.Clock();
 
-            // 1. APLICAR CONFIGURACIÓN DE MAPALISTO.JS
+            // 1. APLICAR ADN DE MAPALISTO.JS (Cielo, Niebla y Luz)
             scene.background = new THREE.Color(MundoConfig.ambiente.niebla.color);
             scene.fog = new THREE.FogExp2(MundoConfig.ambiente.niebla.color, MundoConfig.ambiente.niebla.densidad);
 
-            // Luces
             const sun = new THREE.DirectionalLight(MundoConfig.ambiente.iluminacion.sol.color, MundoConfig.ambiente.iluminacion.sol.intensidad);
             sun.position.set(...MundoConfig.ambiente.iluminacion.sol.pos);
             scene.add(sun, new THREE.AmbientLight(MundoConfig.ambiente.iluminacion.ambiente.color, MundoConfig.ambiente.iluminacion.ambiente.intensidad));
 
-            // Suelo Profesional
+            // 2. CREAR EL PASTO SAGRADO (Definido en mapalisto.js)
             const groundGeo = new THREE.PlaneGeometry(MundoConfig.terreno.size, MundoConfig.terreno.size);
             const groundMat = new THREE.MeshStandardMaterial({ color: MundoConfig.terreno.colorPasto });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
             scene.add(ground);
 
-            // 2. GENERAR ELEMENTOS DINÁMICOS (4D)
+            // 3. GENERAR ATMÓSFERA 4D (Nubes y Polvo)
             crearAtmosfera();
             
-            // 3. CARGAR PERSONAJE Y OBJETOS
+            // 4. CARGAR PERSONAJE (Perfil) Y OBJETOS (Elementor)
             sincronizarPersonaje();
             cargarObjetosElementor();
 
-            // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             document.body.appendChild(renderer.domElement);
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 30000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 1, 40000);
             
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
+            window.addEventListener('mousemove', e => {
+                if(e.buttons === 2) { // Click derecho para rotar cámara
+                    camRotY -= e.movementX * 0.005;
+                    camRotX = Math.max(0.1, Math.min(1.4, camRotX + e.movementY * 0.005));
+                }
+            });
             
             animate();
         }
 
         function crearAtmosfera() {
-            // Nubes
-            const nubeGeo = new THREE.SphereGeometry(1, 7, 7);
+            // Nubes dinámicas
+            const nubeGeo = new THREE.SphereGeometry(1, 8, 8);
             for(let i = 0; i < MundoConfig.clima.nubes.cantidad; i++) {
-                const n = new THREE.Mesh(nubeGeo, new THREE.MeshStandardMaterial({ color: MundoConfig.clima.nubes.color, transparent: true, opacity: 0.6 }));
-                n.scale.set(Math.random()*40+20, 10, Math.random()*30+15);
-                n.position.set((Math.random()-0.5)*10000, MundoConfig.clima.nubes.alturaBase + (Math.random()*200), (Math.random()-0.5)*10000);
+                const n = new THREE.Mesh(nubeGeo, new THREE.MeshStandardMaterial({ color: MundoConfig.clima.nubes.color, transparent: true, opacity: 0.7 }));
+                n.scale.set(Math.random()*60+30, 15, Math.random()*40+20);
+                n.position.set((Math.random()-0.5)*15000, MundoConfig.clima.nubes.alturaBase + (Math.random()*300), (Math.random()-0.5)*15000);
                 scene.add(n);
                 nubes.push(n);
             }
 
-            // Partículas de polvo/luz
+            // Partículas de ambiente
             const partGeo = new THREE.BufferGeometry();
             const posArr = [];
             for(let i=0; i<MundoConfig.clima.particulas.cantidad; i++) {
-                posArr.push((Math.random()-0.5)*MundoConfig.clima.particulas.area, Math.random()*500, (Math.random()-0.5)*MundoConfig.clima.particulas.area);
+                posArr.push((Math.random()-0.5)*MundoConfig.clima.particulas.area, Math.random()*800, (Math.random()-0.5)*MundoConfig.clima.particulas.area);
             }
             partGeo.setAttribute('position', new THREE.Float32BufferAttribute(posArr, 3));
-            particulasSistema = new THREE.Points(partGeo, new THREE.PointsMaterial({ size: MundoConfig.clima.particulas.size, color: MundoConfig.clima.particulas.color, transparent: true, opacity: 0.4 }));
+            particulasSistema = new THREE.Points(partGeo, new THREE.PointsMaterial({ size: MundoConfig.clima.particulas.size, color: MundoConfig.clima.particulas.color, transparent: true, opacity: 0.5 }));
             scene.add(particulasSistema);
         }
 
@@ -104,12 +119,10 @@
 
             const torso = new THREE.Mesh(new THREE.BoxGeometry(4*m, 6, 2.5*m), matRopa); torso.position.y = 8;
             const cabeza = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), matPiel); cabeza.position.y = 12.5;
-            
             const pI = new THREE.Group(); const pD = new THREE.Group();
             const pierna = new THREE.Mesh(new THREE.BoxGeometry(1.6*m, 5, 1.6*m), matRopa);
             pI.add(pierna.clone()); pD.add(pierna.clone());
             pI.position.set(-1.2*m, 2.5, 0); pD.position.set(1.2*m, 2.5, 0);
-
             const bI = new THREE.Mesh(new THREE.BoxGeometry(1.3*m, 5, 1.3*m), matPiel); bI.position.set(-3*m, 8.5, 0);
             const bD = new THREE.Mesh(new THREE.BoxGeometry(1.3*m, 5, 1.3*m), matPiel); bD.position.set(3*m, 8.5, 0);
 
@@ -121,9 +134,15 @@
         function cargarObjetosElementor() {
             const objs = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
             objs.forEach(o => {
-                const box = new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshStandardMaterial({color: 0x444444}));
-                box.position.set(o.pos.x, 10, o.pos.z);
-                scene.add(box);
+                // FILTRO: No cargamos suelos de Elementor para no tapar el pasto de mapalisto.js
+                if(o.type === 'suelo' || o.type === 'piso') return;
+
+                // Usamos la Fabrica para crear el objeto
+                if(typeof Fabrica !== 'undefined') {
+                    const obj = Fabrica.crear(o.type);
+                    obj.position.set(o.pos.x, 0.1, o.pos.z);
+                    scene.add(obj);
+                }
             });
         }
 
@@ -131,42 +150,42 @@
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
-            // 1. ANIMACIÓN 4D (Nubes y Partículas)
+            // --- LÓGICA 4D (Tiempo) ---
             nubes.forEach(n => {
-                n.position.z += MundoConfig.clima.nubes.velocidad * 100 * delta;
-                if(n.position.z > 5000) n.position.z = -5000;
+                n.position.z += MundoConfig.clima.nubes.velocidad * 120 * delta;
+                if(n.position.z > 7000) n.position.z = -7000;
             });
-            particulasSistema.rotation.y += 0.01 * delta;
+            particulasSistema.rotation.y += 0.02 * delta;
 
-            // 2. MOVIMIENTO AGUSTÍN
+            // --- LÓGICA DE AGUSTÍN ---
             if(vaquero) {
                 let isMoving = false;
-                const spd = (keys['ShiftLeft'] ? 160 : 80) * delta;
+                const spd = (keys['ShiftLeft'] ? 180 : 90) * delta;
 
                 if(keys['KeyW']) { vaquero.translateZ(spd); isMoving = true; }
                 if(keys['KeyS']) { vaquero.translateZ(-spd); isMoving = true; }
-                if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
-                if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
+                if(keys['KeyA']) vaquero.rotation.y += 3.5 * delta;
+                if(keys['KeyD']) vaquero.rotation.y -= 3.5 * delta;
 
-                // Animación de extremidades
+                // Animación Pro
                 const pI = vaquero.children[2], pD = vaquero.children[3], bI = vaquero.children[4], bD = vaquero.children[5];
                 if(isMoving) {
-                    walkCycle += (keys['ShiftLeft'] ? 0.3 : 0.18);
+                    walkCycle += (keys['ShiftLeft'] ? 0.35 : 0.2);
                     pI.rotation.x = Math.sin(walkCycle) * 0.7;
                     pD.rotation.x = -Math.sin(walkCycle) * 0.7;
                     bI.rotation.x = -Math.sin(walkCycle) * 0.7;
                     bD.rotation.x = Math.sin(walkCycle) * 0.7;
                 } else {
-                    [pI, pD, bI, bD].forEach(p => p.rotation.x *= 0.9);
+                    [pI, pD, bI, bD].forEach(p => p.rotation.x = THREE.MathUtils.lerp(p.rotation.x, 0, 0.1));
                 }
 
-                // Cámara sigue al personaje
-                camera.position.lerp(new THREE.Vector3(
-                    vaquero.position.x + zoomDist * Math.sin(camRotY),
-                    vaquero.position.y + 60,
-                    vaquero.position.z + zoomDist * Math.cos(camRotY)
-                ), 0.1);
-                camera.lookAt(vaquero.position.x, vaquero.position.y + 10, vaquero.position.z);
+                // Cámara Suave
+                const camX = vaquero.position.x + zoomDist * Math.sin(camRotY) * Math.cos(camRotX);
+                const camY = vaquero.position.y + zoomDist * Math.sin(camRotX) + 20;
+                const camZ = vaquero.position.z + zoomDist * Math.cos(camRotY) * Math.cos(camRotX);
+                
+                camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.1);
+                camera.lookAt(vaquero.position.x, vaquero.position.y + 12, vaquero.position.z);
             }
 
             renderer.render(scene, camera);
