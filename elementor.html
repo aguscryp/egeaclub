@@ -10,54 +10,69 @@
         #side-panel {
             width: 300px; height: 100vh; background: #0a0a0a;
             border-right: 2px solid var(--pink); padding: 20px; box-sizing: border-box;
-            display: flex; flex-direction: column; gap: 10px; z-index: 100;
-            box-shadow: 5px 0 20px rgba(255, 0, 127, 0.2);
+            display: flex; flex-direction: column; gap: 8px; z-index: 100;
+            box-shadow: 5px 0 20px rgba(255, 0, 127, 0.2); overflow-y: auto;
         }
 
-        h2 { color: var(--pink); text-transform: uppercase; text-align: center; font-size: 16px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        .cat { font-size: 9px; color: var(--neon); font-weight: bold; text-transform: uppercase; margin-top: 10px; }
+        h2 { color: var(--pink); text-transform: uppercase; text-align: center; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .cat { font-size: 9px; color: var(--neon); font-weight: bold; text-transform: uppercase; margin-top: 10px; border-left: 2px solid var(--neon); padding-left: 5px; }
         
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
         .item-btn {
-            background: #111; border: 1px solid #333; color: #aaa; padding: 12px;
-            border-radius: 6px; cursor: pointer; transition: 0.3s; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            background: #111; border: 1px solid #333; color: #aaa; padding: 10px;
+            border-radius: 4px; cursor: pointer; transition: 0.2s; font-size: 9px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
-        .item-btn:hover { border-color: var(--pink); color: white; }
-        .item-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
-        .borrar-btn.active { background: #ff4444; border-color: #ff4444; box-shadow: 0 0 15px #ff4444; }
+        .item-btn:hover { border-color: var(--pink); color: white; background: #1a1a1a; }
+        .item-btn.active { border-color: var(--pink); background: var(--pink); color: white; box-shadow: 0 0 10px var(--pink); }
+        .borrar-btn.active { background: #ff4444; border-color: #ff4444; }
 
-        #view { flex-grow: 1; position: relative; cursor: crosshair; }
-        #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 5px; color: var(--neon); font-size: 11px; border: 1px solid var(--neon); z-index: 10; }
-        .controls-hint { position: absolute; bottom: 20px; right: 20px; color: #666; font-size: 10px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; }
+        #view { flex-grow: 1; position: relative; }
+        #status { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.8); padding: 8px 12px; border-radius: 4px; color: var(--neon); font-size: 10px; border: 1px solid var(--neon); z-index: 10; font-family: monospace; }
+        .controls-hint { position: absolute; bottom: 20px; right: 20px; color: #777; font-size: 9px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; line-height: 1.4; }
     </style>
 </head>
 <body>
 
     <div id="side-panel">
         <h2>ELEMENTOR ADMIN</h2>
-        <div class="cat">Herramientas</div>
+        
+        <div class="cat">Sistema</div>
         <div class="grid">
             <button class="item-btn active" onclick="sel('calle', this)">🛣️ CALLE</button>
+            <button class="item-btn" onclick="sel('vereda', this)">🧱 VEREDA</button>
             <button class="item-btn borrar-btn" onclick="sel('borrar', this)">🗑️ BORRADOR</button>
         </div>
-        <div class="cat">Objetos</div>
+
+        <div class="cat">Barrio Privado</div>
         <div class="grid">
-            <button class="item-btn" onclick="sel('estacion', this)">⛽ ESTACIÓN</button>
-            <button class="item-btn" onclick="sel('sw4', this)">🛻 SW4</button>
-            <button class="item-btn" onclick="sel('farola', this)">💡 FAROLA</button>
-            <button class="item-btn" onclick="sel('taller', this)">🔧 TALLER</button>
+            <button class="item-btn" onclick="sel('porton', this)">🏛️ PORTÓN LUJO</button>
+            <button class="item-btn" onclick="sel('reja', this)">🚧 REJA BARRIO</button>
+            <button class="item-btn" onclick="sel('luz_calle', this)">💡 LUZ LED</button>
         </div>
-        <button onclick="limpiarTodo()" style="margin-top:auto; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:5px; font-weight:bold; font-size:10px;">BORRAR TODO EL MAPA</button>
+
+        <div class="cat">Naturaleza Pro</div>
+        <div class="grid">
+            <button class="item-btn" onclick="sel('planta_lujo', this)">🌿 PALMERA</button>
+            <button class="item-btn" onclick="sel('arbol', this)">🌳 ÁRBOL</button>
+        </div>
+
+        <div class="cat">Vehículos</div>
+        <div class="grid">
+            <button class="item-btn" onclick="sel('sw4', this)">🛻 TOYOTA SW4</button>
+            <button class="item-btn" onclick="sel('camioneta', this)">🛻 PICKUP STD</button>
+        </div>
+
+        <button onclick="limpiarTodo()" style="margin-top:20px; background:none; border:1px solid #ff4444; color:#ff4444; padding:8px; cursor:pointer; border-radius:4px; font-size:9px; width:100%;">VACIAR MAPA</button>
     </div>
 
     <div id="view">
-        <div id="status">MODO: COLOCAR | CALLE</div>
+        <div id="status">INICIALIZANDO...</div>
         <div class="controls-hint">
-            • <b>Ruedita:</b> Zoom <br>
-            • <b>Click Derecho:</b> Rotar Cámara <br>
-            • <b>Shift + Click Derecho:</b> Moverse (Desplazar) <br>
-            • <b>Click Izquierdo:</b> Colocar / Borrar
+            <b>MOVIMIENTO:</b> WASD o Flechas <br>
+            <b>ROTAR:</b> Click Derecho <br>
+            <b>ZOOM:</b> Ruedita <br>
+            <b>PONER:</b> Click Izquierdo (Precisión Instantánea)
         </div>
     </div>
 
@@ -65,18 +80,19 @@
     <script>
         let scene, camera, renderer, grid, raycaster, mouse;
         let currentType = 'calle';
-        let zoomDist = 600;
+        let zoomDist = 500;
         let camRot = 0.8;
         let camTarget = new THREE.Vector3(0, 0, 0);
         let isRightDown = false;
         let meshList = [];
+        let previewObj = null;
 
         window.onload = () => { init(); animate(); renderExisting(); };
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x050505);
-            camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 300) / window.innerHeight, 1, 15000);
+            camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 300) / window.innerHeight, 1, 20000);
             updateCamera();
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -86,47 +102,34 @@
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            const sun = new THREE.DirectionalLight(0xffffff, 0.5);
-            sun.position.set(500, 1000, 500);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+            sun.position.set(1000, 1000, 500);
             scene.add(sun);
 
             grid = new THREE.GridHelper(10000, 100, 0x222222, 0x111111);
             scene.add(grid);
 
-            // Zoom mejorado
-            window.addEventListener('wheel', e => {
-                zoomDist += e.deltaY * 0.8;
-                zoomDist = Math.max(50, Math.min(5000, zoomDist));
-                updateCamera();
-            }, { passive: true });
-
+            // Controles de Cámara y Mouse
+            window.addEventListener('wheel', e => { zoomDist += e.deltaY * 0.5; zoomDist = Math.max(50, 5000); updateCamera(); }, {passive:true});
             window.addEventListener('contextmenu', e => e.preventDefault());
-            window.addEventListener('mousedown', e => { if(e.button === 2) isRightDown = true; });
+            window.addEventListener('mousedown', e => { 
+                if(e.button === 2) isRightDown = true; 
+                if(e.button === 0) onClick(e); // Usamos mousedown para precisión
+            });
             window.addEventListener('mouseup', e => { if(e.button === 2) isRightDown = false; });
             
-            window.addEventListener('mousemove', e => {
-                const r = renderer.domElement.getBoundingClientRect();
-                mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-                mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-
-                if(isRightDown) {
-                    if(e.shiftKey) {
-                        // Desplazamiento (Pan)
-                        const speed = zoomDist * 0.002;
-                        camTarget.x -= e.movementX * speed * Math.cos(camRot);
-                        camTarget.z += e.movementX * speed * Math.sin(camRot);
-                        camTarget.x += e.movementY * speed * Math.sin(camRot);
-                        camTarget.z += e.movementY * speed * Math.cos(camRot);
-                    } else {
-                        // Rotación
-                        camRot -= e.movementX * 0.01;
-                    }
-                    updateCamera();
-                }
+            // Movimiento Teclado
+            window.addEventListener('keydown', e => {
+                const step = 20;
+                if(e.key === 'w' || e.key === 'ArrowUp') { camTarget.z -= step * Math.cos(camRot); camTarget.x -= step * Math.sin(camRot); }
+                if(e.key === 's' || e.key === 'ArrowDown') { camTarget.z += step * Math.cos(camRot); camTarget.x += step * Math.sin(camRot); }
+                if(e.key === 'a' || e.key === 'ArrowLeft') { camTarget.x -= step * Math.cos(camRot); camTarget.z += step * Math.sin(camRot); }
+                if(e.key === 'd' || e.key === 'ArrowRight') { camTarget.x += step * Math.cos(camRot); camTarget.z -= step * Math.sin(camRot); }
+                updateCamera();
             });
 
-            window.addEventListener('click', onClick);
+            window.addEventListener('mousemove', onMouseMove);
         }
 
         function updateCamera() {
@@ -136,11 +139,39 @@
             camera.lookAt(camTarget);
         }
 
+        function onMouseMove(e) {
+            const r = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+            mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+
+            if(isRightDown) {
+                camRot -= e.movementX * 0.01;
+                updateCamera();
+            }
+
+            // Actualizar Previsualización
+            updatePreview();
+        }
+
+        function updatePreview() {
+            if(previewObj) scene.remove(previewObj);
+            if(currentType === 'borrar') return;
+
+            raycaster.setFromCamera(mouse, camera);
+            const hits = raycaster.intersectObject(grid);
+            if(hits.length > 0) {
+                const p = hits[0].point;
+                previewObj = createModel(currentType, true);
+                previewObj.position.set(Math.round(p.x/10)*10, 0, Math.round(p.z/10)*10);
+                scene.add(previewObj);
+            }
+        }
+
         function sel(t, btn) {
             currentType = t;
             document.querySelectorAll('.item-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById('status').innerText = `MODO: ${t === 'borrar' ? 'BORRAR' : 'COLOCAR | ' + t.toUpperCase()}`;
+            document.getElementById('status').innerText = `MODO: ${t.toUpperCase()}`;
         }
 
         function onClick(e) {
@@ -176,31 +207,54 @@
             draw(obj);
         }
 
-        function draw(obj) {
+        function createModel(type, isPreview = false) {
             const group = new THREE.Group();
-            group.position.set(obj.pos.x, 0, obj.pos.z);
-            group.userData.id = obj.id;
+            const opacity = isPreview ? 0.5 : 1;
+            const mat = (c) => new THREE.MeshStandardMaterial({color: c, transparent: isPreview, opacity: opacity});
 
-            if (obj.type === 'calle') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), new THREE.MeshStandardMaterial({color: 0x111111}));
-                const linea = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 50), new THREE.MeshStandardMaterial({color: 0xffff00}));
-                group.add(base, linea);
-            } else if (obj.type === 'sw4') {
-                const body = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 20), new THREE.MeshStandardMaterial({color: 0xffffff}));
-                body.position.y = 2.5;
-                group.add(body);
-            } else if (obj.type === 'estacion') {
-                const techo = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 30), new THREE.MeshStandardMaterial({color: 0x00ff44}));
-                techo.position.y = 15;
-                group.add(techo);
+            if(type === 'calle') {
+                const b = new THREE.Mesh(new THREE.BoxGeometry(50, 0.5, 50), mat(0x111111));
+                const l = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 50), mat(0xffff00));
+                group.add(b, l);
+            } else if(type === 'vereda') {
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1.5, 10), mat(0x333333)));
+            } else if(type === 'luz_calle') {
+                const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 30), mat(0x444444));
+                poste.position.y = 15;
+                const foco = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 8), mat(0xffffff));
+                foco.position.set(0, 30, 4);
+                group.add(poste, foco);
+            } else if(type === 'porton') {
+                const p1 = new THREE.Mesh(new THREE.BoxGeometry(4, 25, 4), mat(0x222222));
+                const p2 = p1.clone(); p1.position.x = -15; p2.position.x = 15;
+                const reja = new THREE.Mesh(new THREE.BoxGeometry(30, 15, 1), mat(0x00d4ff));
+                reja.position.y = 10;
+                group.add(p1, p2, reja);
+            } else if(type === 'planta_lujo') {
+                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1.5, 20), mat(0x3d2b1f));
+                t.position.y = 10;
+                const h = new THREE.Mesh(new THREE.SphereGeometry(8, 8, 8), mat(0x00ff44));
+                h.position.y = 20;
+                group.add(t, h);
+            } else if(type === 'sw4' || type === 'camioneta') {
+                const c = type === 'sw4' ? 0xffffff : 0x555555;
+                const b = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 22), mat(c));
+                b.position.y = 3;
+                group.add(b);
             } else {
-                const box = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshStandardMaterial({color: 0xff007f}));
+                const box = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), mat(0xff007f));
                 box.position.y = 5;
                 group.add(box);
             }
+            return group;
+        }
 
-            scene.add(group);
-            meshList.push(group);
+        function draw(obj) {
+            const model = createModel(obj.type);
+            model.position.set(obj.pos.x, 0, obj.pos.z);
+            model.userData.id = obj.id;
+            scene.add(model);
+            meshList.push(model);
         }
 
         function renderExisting() {
@@ -209,7 +263,7 @@
         }
 
         function limpiarTodo() {
-            if(confirm("¿Borrar todo el mapa?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
+            if(confirm("¿VACIAR TODO EL MAPA?")) { localStorage.removeItem('elementos_ciudad'); location.reload(); }
         }
 
         function animate() {
