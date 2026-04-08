@@ -37,19 +37,18 @@
         let velocityY = 0; 
         let isGrounded = true;
         
-        // --- VARIABLES DE CÁMARA ---
         let zoomDistance = 35;
-        let camRotationY = 0; // Rotación horizontal de la cámara
-        let camRotationX = 0.5; // Rotación vertical (ángulo)
+        let camRotationY = 0;
+        let camRotationX = 0.5;
         let isRightClickDown = false;
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x87CEEB);
-            scene.fog = new THREE.Fog(0x87CEEB, 100, 1000);
+            scene.fog = new THREE.Fog(0x87CEEB, 100, 1500);
             clock = new THREE.Clock();
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 5000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
             
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -60,7 +59,7 @@
             sun.position.set(100, 500, 100);
             scene.add(sun);
 
-            // SUELO REALISTA
+            // SUELO
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
             const ctx = canvas.getContext('2d');
@@ -75,7 +74,7 @@
             texture.repeat.set(150, 150);
 
             const ground = new THREE.Mesh(
-                new THREE.PlaneGeometry(10000, 10000),
+                new THREE.PlaneGeometry(15000, 15000),
                 new THREE.MeshStandardMaterial({ map: texture, roughness: 1 })
             );
             ground.rotation.x = -Math.PI / 2;
@@ -87,46 +86,97 @@
             document.getElementById('p-nombre').innerText = (localStorage.getItem('currentUser') || "AGUSTÍN").toUpperCase();
             buildVaquero(config);
 
-            // ELEMENTOR
-            const elData = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
-            elData.forEach(item => {
-                const geo = item.type === 'calle' ? new THREE.BoxGeometry(50, 0.2, 50) : new THREE.BoxGeometry(10, 20, 10);
-                const mat = new THREE.MeshStandardMaterial({ color: item.type === 'calle' ? 0x222222 : 0x777777 });
-                const obj = new THREE.Mesh(geo, mat);
-                obj.position.set(item.pos.x, item.type === 'calle' ? 0.1 : 10, item.pos.z);
-                scene.add(obj);
-            });
+            // --- MOTOR DE RENDERIZADO DE ELEMENTOR ---
+            cargarCiudad();
 
-            // --- EVENTOS DE CONTROL ---
+            // EVENTOS
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
-            
-            // Zoom
             window.addEventListener('wheel', e => {
                 zoomDistance += e.deltaY * 0.05;
-                zoomDistance = Math.max(10, Math.min(150, zoomDistance));
+                zoomDistance = Math.max(5, Math.min(300, zoomDistance));
             });
-
-            // Bloquear menú contextual del click derecho
             window.addEventListener('contextmenu', e => e.preventDefault());
-
-            // Detección de Click Derecho
             window.addEventListener('mousedown', e => { if(e.button === 2) isRightClickDown = true; });
             window.addEventListener('mouseup', e => { if(e.button === 2) isRightClickDown = false; });
-
-            // Movimiento del Mouse
             window.addEventListener('mousemove', e => {
                 if(isRightClickDown) {
                     camRotationY -= e.movementX * 0.01;
                     camRotationX += e.movementY * 0.01;
-                    // Limitar rotación vertical para no dar la vuelta completa
-                    camRotationX = Math.max(0.1, Math.min(1.4, camRotationX));
+                    camRotationX = Math.max(0.05, Math.min(1.5, camRotationX));
                 }
             });
-
             window.addEventListener('click', (e) => { if(e.button === 0) cavarPozo(); });
 
             animate();
+        }
+
+        // FUNCIÓN CLAVE: Construye los modelos detallados que vienen del Elementor
+        function createDetailedModel(type) {
+            const group = new THREE.Group();
+            const mat = (c) => new THREE.MeshStandardMaterial({ color: c });
+
+            if(type === 'calle') {
+                const asfalto = new THREE.Mesh(new THREE.BoxGeometry(50, 0.4, 50), mat(0x111111));
+                const linea = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 50), mat(0xffff00));
+                group.add(asfalto, linea);
+            } 
+            else if(type === 'sw4') {
+                const body = new THREE.Mesh(new THREE.BoxGeometry(9, 4, 18), mat(0xffffff));
+                body.position.y = 3;
+                const glass = new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 7), mat(0x222222));
+                glass.position.set(0, 5, -1);
+                group.add(body, glass);
+                // Ruedas
+                const rGeo = new THREE.CylinderGeometry(1.5, 1.5, 1, 12);
+                for(let i=0; i<4; i++) {
+                    const r = new THREE.Mesh(rGeo, mat(0x111111));
+                    r.rotation.z = Math.PI/2;
+                    r.position.set(i%2?4.5:-4.5, 1.5, i<2?6:-6);
+                    group.add(r);
+                }
+            } 
+            else if(type === 'porton') {
+                const p1 = new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4), mat(0x333333));
+                const p2 = p1.clone(); p1.position.x = -20; p2.position.x = 20;
+                const barra = new THREE.Mesh(new THREE.BoxGeometry(40, 2, 2), mat(0x00d4ff));
+                barra.position.y = 25;
+                group.add(p1, p2, barra);
+            } 
+            else if(type === 'luz_led') {
+                const poste = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 40), mat(0x333333));
+                poste.position.y = 20;
+                const cabeza = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 6), mat(0xffffff));
+                cabeza.position.set(0, 40, 2);
+                group.add(poste, cabeza);
+            }
+            else if(type === 'palmera') {
+                const t = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.2, 25), mat(0x4b3621));
+                t.position.y = 12.5;
+                const c = new THREE.Mesh(new THREE.SphereGeometry(7, 8, 8), mat(0x228b22));
+                c.position.y = 25;
+                group.add(t, c);
+            }
+            else if(type === 'vereda') {
+                group.add(new THREE.Mesh(new THREE.BoxGeometry(50, 1, 12), mat(0x666666)));
+            }
+            else if(type === 'pino') {
+                const tr = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 5), mat(0x3d2b1f));
+                const co = new THREE.Mesh(new THREE.ConeGeometry(8, 20, 8), mat(0x0b3d0b));
+                co.position.y = 12.5;
+                group.add(tr, co);
+            }
+
+            return group;
+        }
+
+        function cargarCiudad() {
+            const elData = JSON.parse(localStorage.getItem('elementos_ciudad')) || [];
+            elData.forEach(item => {
+                const model = createDetailedModel(item.type);
+                model.position.set(item.pos.x, 0, item.pos.z);
+                scene.add(model);
+            });
         }
 
         function buildVaquero(config) {
@@ -147,14 +197,14 @@
             bDer = new THREE.Mesh(new THREE.BoxGeometry(0.25 * m, 1, 0.25 * m), matPiel); bDer.position.set(0.6, 1.7, 0);
 
             vaquero.add(torso, cabeza, pIzq, pDer, bIzq, bDer);
-            vaquero.scale.y = parseFloat(config.altura);
+            vaquero.scale.set(1, parseFloat(config.altura), 1);
             scene.add(vaquero);
         }
 
         function cavarPozo() {
             const pozo = new THREE.Mesh(new THREE.CircleGeometry(2, 32), new THREE.MeshBasicMaterial({ color: 0x1a0f00 }));
             pozo.rotation.x = -Math.PI / 2;
-            pozo.position.set(vaquero.position.x, 0.15, vaquero.position.z);
+            pozo.position.set(vaquero.position.x, 0.05, vaquero.position.z);
             scene.add(pozo);
         }
 
@@ -167,13 +217,11 @@
                 const isMoving = keys['KeyW'] || keys['KeyS'];
                 const speed = (keys['ShiftLeft'] ? 65 : 35) * delta;
                 
-                // MOVIMIENTO (Relativo a donde mira el personaje)
                 if(keys['KeyW']) vaquero.translateZ(speed);
                 if(keys['KeyS']) vaquero.translateZ(-speed);
                 if(keys['KeyA']) vaquero.rotation.y += 3 * delta;
                 if(keys['KeyD']) vaquero.rotation.y -= 3 * delta;
 
-                // Animación de extremidades
                 const animSpeed = isMoving ? 2.5 : 0.5;
                 const animAmp = isMoving ? 0.7 : 0.1;
                 bIzq.rotation.x = Math.sin(time * animSpeed) * animAmp;
@@ -181,7 +229,6 @@
                 pIzq.rotation.x = -Math.sin(time * animSpeed) * animAmp;
                 pDer.rotation.x = Math.sin(time * animSpeed) * animAmp;
 
-                // Salto
                 if(keys['Space'] && isGrounded) { velocityY = 1.3; isGrounded = false; }
                 if(!isGrounded) {
                     velocityY -= 0.07;
@@ -189,8 +236,6 @@
                     if(vaquero.position.y <= 0) { vaquero.position.y = 0; isGrounded = true; }
                 }
 
-                // --- LÓGICA DE CÁMARA 360 ---
-                // La cámara gira alrededor del personaje usando camRotationY y camRotationX
                 const x = vaquero.position.x + zoomDistance * Math.sin(camRotationY) * Math.cos(camRotationX);
                 const y = vaquero.position.y + zoomDistance * Math.sin(camRotationX) + 5;
                 const z = vaquero.position.z + zoomDistance * Math.cos(camRotationY) * Math.cos(camRotationX);
